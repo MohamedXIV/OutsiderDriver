@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ec5c656fad97c447b51e266436ae151, type: 3}
+  m_Name: RadioStation_AmberWave
+  m_EditorClassIdentifier: OutsiderDriver.Runtime::OutsiderDriver.Audio.RadioStationSO
+  _stationId: station_amber_wave
+  _stationName: Amber Wave Transit Radio
+  _frequencyLabel: 94.6 MHz
+  _primaryLanguageId: Common
+  _programs:
+  - _programId: prog_day_commute
+    _title: Daylight Bridge & Canal Bulletin
+    _transcriptText: Traffic flowing smoothly along Central Junction and Market Square.
+    _languageId: Common
+    _audioClip: {fileID: 0}
+    _startHour: 6
+    _endHour: 17
+  - _programId: prog_dusk_synth
+    _title: Warm Dusk Brass & Glass
+    _transcriptText: Evening melodies drifting over Riverside Vista.
+    _languageId: Common
+    _audioClip: {fileID: 0}
+    _startHour: 18
+    _endHour: 5

@@ -8,6 +8,7 @@ using UnityEngine.Rendering.Universal;
 using UnityEngine.Tilemaps;
 using Unity.Cinemachine;
 using VContainer.Unity;
+using OutsiderDriver.Audio;
 using OutsiderDriver.Core;
 using OutsiderDriver.Core.Time;
 using OutsiderDriver.Navigation;
@@ -22,6 +23,8 @@ namespace OutsiderDriver.Editor
         private const string ScenePath = "Assets/_Project/Scenes/TaxiSandbox.unity";
         private const string SettingsFolder = "Assets/_Project/Settings";
         private const string TimeConfigPath = "Assets/_Project/Settings/TimeConfig.asset";
+        private const string AmberWaveStationPath = "Assets/_Project/Settings/RadioStation_AmberWave.asset";
+        private const string VesperChimesStationPath = "Assets/_Project/Settings/RadioStation_VesperChimes.asset";
 
         [MenuItem("Outsider Driver/Build Taxi Sandbox Scene")]
         public static void BuildScene()
@@ -140,7 +143,13 @@ namespace OutsiderDriver.Editor
             playerController.AssignVisualsRoot(driverVisualsGo);
             playerController.AssignCameras(taxiVcam, onFootVcam);
 
-            // 10. Scene Lifetime Scope (CitySceneLifetimeScope)
+            // 10. Alien Radio Station & Ambient City Soundscape Controller
+            var radioStations = EnsureDefaultRadioStations();
+            var radioGo = new GameObject("RadioAudioController");
+            var radioController = radioGo.AddComponent<RadioAudioController>();
+            radioController.ConfigureStations(radioStations, startOn: true);
+
+            // 11. Scene Lifetime Scope (CitySceneLifetimeScope)
             var sceneScopeGo = new GameObject("CitySceneLifetimeScope");
             var cityScope = sceneScopeGo.AddComponent<CitySceneLifetimeScope>();
             cityScope.parentReference = ParentReference.Create<GameLifetimeScope>();
@@ -150,7 +159,8 @@ namespace OutsiderDriver.Editor
                 networkGo,
                 taxiGo,
                 trafficGo,
-                driverGo
+                driverGo,
+                radioGo
             });
 
             // Save Scene
@@ -302,6 +312,69 @@ namespace OutsiderDriver.Editor
             AssetDatabase.CreateAsset(config, TimeConfigPath);
             AssetDatabase.SaveAssets();
             return config;
+        }
+
+        private static List<RadioStationSO> EnsureDefaultRadioStations()
+        {
+            if (!Directory.Exists(SettingsFolder))
+            {
+                Directory.CreateDirectory(SettingsFolder);
+                AssetDatabase.Refresh();
+            }
+
+            var amberWave = AssetDatabase.LoadAssetAtPath<RadioStationSO>(AmberWaveStationPath);
+            if (amberWave == null)
+            {
+                amberWave = ScriptableObject.CreateInstance<RadioStationSO>();
+                amberWave.Configure(
+                    "station_amber_wave",
+                    "Amber Wave Transit Radio",
+                    "94.6 MHz",
+                    "Common",
+                    new[]
+                    {
+                        new RadioProgramEntry(
+                            "prog_day_commute",
+                            "Daylight Bridge & Canal Bulletin",
+                            "Traffic flowing smoothly along Central Junction and Market Square.",
+                            "Common",
+                            6,
+                            17),
+                        new RadioProgramEntry(
+                            "prog_dusk_synth",
+                            "Warm Dusk Brass & Glass",
+                            "Evening melodies drifting over Riverside Vista.",
+                            "Common",
+                            18,
+                            5)
+                    });
+                AssetDatabase.CreateAsset(amberWave, AmberWaveStationPath);
+            }
+
+            var vesperChimes = AssetDatabase.LoadAssetAtPath<RadioStationSO>(VesperChimesStationPath);
+            if (vesperChimes == null)
+            {
+                vesperChimes = ScriptableObject.CreateInstance<RadioStationSO>();
+                vesperChimes.Configure(
+                    "station_vesper_chimes",
+                    "Vesperian Cultural Frequency",
+                    "108.2 MHz",
+                    "Local",
+                    new[]
+                    {
+                        new RadioProgramEntry(
+                            "prog_vesper_poetry",
+                            "Old Terrace Recitations",
+                            "Kaelor vesh tarnak solen mira.",
+                            "Local",
+                            0,
+                            23)
+                    });
+                AssetDatabase.CreateAsset(vesperChimes, VesperChimesStationPath);
+            }
+
+            AssetDatabase.SaveAssets();
+            return new List<RadioStationSO> { amberWave, vesperChimes };
         }
 
         private static RoadNode CreateNode(string id, Vector3 position, Transform parent)

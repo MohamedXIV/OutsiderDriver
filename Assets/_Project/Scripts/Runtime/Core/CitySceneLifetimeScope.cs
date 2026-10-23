@@ -1,6 +1,7 @@
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;
+using OutsiderDriver.Audio;
 using OutsiderDriver.Navigation;
 using OutsiderDriver.Player;
 using OutsiderDriver.Rides;
@@ -12,7 +13,7 @@ namespace OutsiderDriver.Core
 {
     /// <summary>
     /// Per-scene VContainer dependency injection scope for city navigation, traffic, ride lifecycle,
-    /// walkable home/neighborhood layout, on-foot player controller, UI presenters, and local actors.
+    /// walkable home/neighborhood layout, on-foot player controller, radio/ambient audio, UI presenters, and local actors.
     /// </summary>
     [DisallowMultipleComponent]
     public class CitySceneLifetimeScope : LifetimeScope
@@ -34,6 +35,12 @@ namespace OutsiderDriver.Core
             if (playerController != null)
             {
                 builder.RegisterComponent(playerController);
+            }
+
+            var radioController = FindAnyObjectByType<RadioAudioController>();
+            if (radioController != null)
+            {
+                builder.RegisterComponent(radioController).AsSelf().As<IRadioAudioService>();
             }
 
             var dialogueView = FindAnyObjectByType<DialogueView>();
