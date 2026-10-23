@@ -3,8 +3,10 @@ using UnityEngine;
 namespace OutsiderDriver.World
 {
     /// <summary>
-    /// Smooth isometric 2D camera follow with customizable damping and lead-ahead offset.
+    /// Smooth isometric 2D camera follow (legacy prototype).
+    /// Superseded by Unity 6 Cinemachine 3 (CinemachineBrain & CinemachineCamera) per Decisions P-019 and P-025.
     /// </summary>
+    [System.Obsolete("Use Cinemachine 3 (CinemachineBrain & CinemachineCamera) for production camera tracking and blending.")]
     [DisallowMultipleComponent]
     [RequireComponent(typeof(Camera))]
     public class IsometricCameraFollow : MonoBehaviour

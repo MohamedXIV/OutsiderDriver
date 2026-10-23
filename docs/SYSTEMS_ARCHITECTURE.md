@@ -123,6 +123,13 @@ flowchart LR
    * Named, significant passengers and friends have lightweight schedule data (`At 14:00 be at Market Junction`).
    * Off-screen: Their world coordinates update virtually on the coarse `TimeService` tick without physics or pathfinding.
    * On-screen: When the player is in the same district, they are instantiated as rich physical actors.
+4. **Pure Kinematic Movement (Physics Engine Banned for Vehicles - Decision P-024):**
+   * Vehicles use deterministic kinematic movement (acceleration, deceleration, yielding, and route following) along the authored road graph.
+   * `Rigidbody2D`, wheel colliders, and momentum physics are strictly banned to avoid physics deadlocks, intersection pileups, clipping, and frame drops.
+5. **Native Unity 2D Isometric Pipeline & Cinemachine 3 (Decision P-025):**
+   * World layout is authored using Unity's native `Grid` and `Tilemap` (`Isometric Z as Y`).
+   * Visual depth is handled automatically via Unity's Project Transparency Sort Axis (`TransparencySortMode.CustomAxis` with `{x: 0, y: 1, z: -0.26}`), removing the need for custom z-sorting scripts.
+   * Camera tracking is powered by Unity 6's Cinemachine 3 (`CinemachineBrain` and `CinemachineCamera`), enabling smooth framing and automatic blending between taxi navigation and on-foot walking.
 
 ---
 

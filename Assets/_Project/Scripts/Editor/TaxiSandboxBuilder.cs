@@ -5,12 +5,12 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
+using Unity.Cinemachine;
 using VContainer.Unity;
 using OutsiderDriver.Core;
 using OutsiderDriver.Core.Time;
 using OutsiderDriver.Navigation;
 using OutsiderDriver.Vehicles;
-using OutsiderDriver.World;
 
 namespace OutsiderDriver.Editor
 {
@@ -33,7 +33,7 @@ namespace OutsiderDriver.Editor
             var gameScope = rootScopeGo.AddComponent<GameLifetimeScope>();
             SetPrivateField(gameScope, "_timeConfig", timeConfig);
 
-            // 2. Camera
+            // 2. Camera & Cinemachine 3 Brain
             var camGo = new GameObject("Main Camera");
             camGo.tag = "MainCamera";
             var cam = camGo.AddComponent<Camera>();
@@ -42,7 +42,7 @@ namespace OutsiderDriver.Editor
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = new Color(0.12f, 0.14f, 0.18f); // Soft alien dusk navy
             camGo.AddComponent<UniversalAdditionalCameraData>();
-            var camFollow = camGo.AddComponent<IsometricCameraFollow>();
+            camGo.AddComponent<CinemachineBrain>();
             camGo.transform.position = new Vector3(0f, 0f, -10f);
 
             // 3. Global 2D Light
@@ -93,11 +93,16 @@ namespace OutsiderDriver.Editor
             sr.color = new Color(1f, 0.78f, 0.28f); // Warm retro-futurist taxi yellow/amber
             visualsGo.transform.localScale = new Vector3(0.7f, 0.5f, 1f);
 
-            // Link camera
-            camFollow.Target = taxiGo.transform;
-            camFollow.SnapToTarget();
+            // 6. Cinemachine 3 Virtual Camera
+            var vcamGo = new GameObject("Cinemachine Camera (Taxi)");
+            var vcam = vcamGo.AddComponent<CinemachineCamera>();
+            vcam.Target.TrackingTarget = taxiGo.transform;
+            vcam.Lens.ModeOverride = LensSettings.OverrideModes.Orthographic;
+            vcam.Lens.OrthographicSize = 5f;
+            var follow = vcamGo.AddComponent<CinemachineFollow>();
+            follow.FollowOffset = new Vector3(0f, 0f, -10f);
 
-            // 6. Scene Lifetime Scope (CitySceneLifetimeScope)
+            // 7. Scene Lifetime Scope (CitySceneLifetimeScope)
             var sceneScopeGo = new GameObject("CitySceneLifetimeScope");
             var cityScope = sceneScopeGo.AddComponent<CitySceneLifetimeScope>();
             cityScope.parentReference = ParentReference.Create<GameLifetimeScope>();

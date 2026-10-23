@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using VContainer;
+using OutsiderDriver.Data;
 using OutsiderDriver.Navigation;
 
 namespace OutsiderDriver.Vehicles
@@ -21,7 +22,8 @@ namespace OutsiderDriver.Vehicles
         [SerializeField] private RoadNetwork _roadNetwork;
         [SerializeField] private float _waypointArrivalRadius = 0.25f;
 
-        [Header("Movement Dynamics")]
+        [Header("Movement Dynamics & Data Model")]
+        [SerializeField] private CarModelSO _carModel;
         [SerializeField] private float _maxSpeed = 5f;
         [SerializeField] private float _acceleration = 4f;
         [SerializeField] private float _deceleration = 6f;
@@ -56,12 +58,15 @@ namespace OutsiderDriver.Vehicles
         }
         public static void ClearActiveVehicles() => ActiveVehicles.Clear();
 
+        public CarModelSO CarModel => _carModel;
         public float CurrentSpeed => _currentSpeed;
         public float MaxSpeed
         {
             get => _maxSpeed;
             set => _maxSpeed = Mathf.Max(0.1f, value);
         }
+        public float Acceleration => _acceleration;
+        public float Deceleration => _deceleration;
         public float ForwardSensorDistance
         {
             get => _forwardSensorDistance;
@@ -89,8 +94,27 @@ namespace OutsiderDriver.Vehicles
             }
         }
 
+        /// <summary>
+        /// Applies kinematic movement and sensor specs from a data-driven CarModelSO asset.
+        /// </summary>
+        public void ApplyCarModel(CarModelSO model)
+        {
+            if (model == null) return;
+
+            _carModel = model;
+            _maxSpeed = model.MaxSpeed;
+            _acceleration = model.Acceleration;
+            _deceleration = model.Deceleration;
+            _forwardSensorDistance = model.ForwardSensorDistance;
+        }
+
         private void Awake()
         {
+            if (_carModel != null)
+            {
+                ApplyCarModel(_carModel);
+            }
+
             if (!ActiveVehicles.Contains(this))
             {
                 ActiveVehicles.Add(this);
