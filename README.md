@@ -1,0 +1,54 @@
+# Outsider Driver
+
+**A living, colorful alien city. An old taxi. A human who is not supposed to be here.**
+
+You are an illegal human resident living under a cover identity in a non-human civilization. Make a living carrying passengers, talk to them or enjoy the silence, learn the city and its languages, become familiar with people if you wish, and spend ordinary time at home or walking around your neighborhood.
+
+**This is an intentionally simple, freeform social/taxi-life sandbox** — not a combat RPG, quest campaign, procedural city generator, giant economy simulator or all-citizen AI research project.
+
+## Current project
+
+- **Engine:** Unity 6 (repository currently targets **6000.6.0f1**).
+- **Language:** C#.
+- **View:** genuine **2D isometric** city with authored streets and spaces.
+- **Driving:** semi-autonomous connected-road travel; route/destination decisions rather than a mandatory hardcore manual driving game.
+- **Walking:** real on-foot freedom, **initially limited to the player's home and own neighborhood**.
+- **Presentation:** beautiful, bright, cozy, rich **alien retro-futurism** and expressive attractive characters. The exact in-game sprite/pixel-art treatment is **not finalized**.
+- **Narrative:** voluntary contextual conversations, recurring individuals and possible relationships; no compulsory plot/quests.
+- **City:** ordinary activity and believable local life without needing a detailed simulator running for every resident.
+
+**Development status (October 23, 2026):** clean Unity 2D template plus a newly established design/agent documentation set. The previous versions' gameplay code and architecture are **not** migrated, and these docs are not evidence that the described features are implemented.
+
+## Canonical documentation
+
+| Document | What it answers |
+| --- | --- |
+| **[Game Design & DNA](docs/GAME_DESIGN.md)** | Detailed premise, activities, passengers, road travel, walking, residents, relationships, language, radio, economy, world, scope |
+| **[Decisions & Open Questions](docs/DECISIONS_AND_OPEN_QUESTIONS.md)** | What was approved, historically intended, superseded, merely illustrative or still undecided; IDs for every agent |
+| **[Visual Direction](docs/VISUAL_DIRECTION.md)** | Bright alien retro-futurism, architecture, vehicles, people, cozy home, user-supplied reference interpretations and art-production unknowns |
+| **[Engineering Principles](docs/ENGINEERING_PRINCIPLES.md)** | Unity-native 2D approach, clean production systems, performance validation, and previous mistakes to avoid |
+| **[AGENTS.md](AGENTS.md)** | Mandatory instructions and reading order for contributors and AI agents |
+
+> **Contributor instruction:** Read [AGENTS.md](AGENTS.md) before making decisions or changing the project. If the design does not actually settle a detail, **mark it open instead of guessing**.
+
+## Clear product boundaries
+
+- **No combat. No quests. No mandatory main story. No procedural generation pillar.**
+- **No city-wide on-foot open world promised now**; home and local neighborhood are the approved initial walking scope.
+- **No old code migration** from Babylon.js/TypeScript or Godot/GDScript.
+- **No technical demo or temporary test scene promoted as production architecture.**
+- **No giant simulation engine** built in advance of real player-facing need.
+- **Use native Unity 2D authoring** for static environment, sprites, animation and UI rather than a custom world renderer.
+
+The game is meant to be **rich in people, atmosphere and possibility**, not rich in compulsory subsystems.
+
+## Historical design references (not dependencies)
+
+- [Outsider Driver — first repository](https://github.com/MohamedXIV/outsider-driver): original alien social-stealth taxi premise, early authored ride and 3D-era visual exploration.
+- [Outsider Driver 2D — second repository](https://github.com/MohamedXIV/outsider-driver-2d): Godot systemic sandbox and isometric evolution, living residents, social/language design, playability and performance lessons.
+
+Both contain useful **design discussions**, but they are **not source-code or implementation backlogs for this clean Unity project**.
+
+## Art reference availability
+
+The owner provided contemporary reference images showing a cozy illustrated/isometric room with expressive dialogue portraits, and several colorful alien city/asset/district concept boards. Their **design intent is transcribed in [Visual Direction](docs/VISUAL_DIRECTION.md)**; the binary images themselves have not been committed to this repository yet. Do not pretend they are available for inspection or final art specifications.
