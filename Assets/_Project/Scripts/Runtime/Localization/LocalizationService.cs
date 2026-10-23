@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using VContainer;
 
 namespace OutsiderDriver.Localization
 {
@@ -31,7 +32,12 @@ namespace OutsiderDriver.Localization
 
         public event Action<string> OnLocaleChanged;
 
-        public LocalizationService(string initialLocale = DefaultLocale)
+        [Inject]
+        public LocalizationService() : this(DefaultLocale)
+        {
+        }
+
+        public LocalizationService(string initialLocale)
         {
             RegisterDefaultStringTables();
             SetLocale(string.IsNullOrEmpty(initialLocale) ? DefaultLocale : initialLocale);
