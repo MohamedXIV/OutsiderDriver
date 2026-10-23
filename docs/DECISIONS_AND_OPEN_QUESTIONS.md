@@ -22,7 +22,7 @@ This file is authoritative alongside [GAME_DESIGN.md](GAME_DESIGN.md). It record
 ## Precedence and source of truth
 
 1. **Most recent explicit owner decision** wins on that topic, including this conversation's October 23 cleanup.
-2. Current [GAME_DESIGN.md](GAME_DESIGN.md), this register, [VISUAL_DIRECTION.md](VISUAL_DIRECTION.md) and [ENGINEERING_PRINCIPLES.md](ENGINEERING_PRINCIPLES.md) record current interpretation.
+2. Current [GAME_DESIGN.md](GAME_DESIGN.md), this register, [VISUAL_DIRECTION.md](VISUAL_DIRECTION.md), [ENGINEERING_PRINCIPLES.md](ENGINEERING_PRINCIPLES.md) and [SYSTEMS_ARCHITECTURE.md](SYSTEMS_ARCHITECTURE.md) record current interpretation.
 3. Live Unity source only says **what has been implemented**, never automatically **what must be kept**.
 4. Prior repositories provide product-design history and cautionary lessons, not automatic Unity requirements.
 5. Older design documents cannot overrule a newer owner correction; old test assertions do not veto changed game design.
@@ -32,9 +32,9 @@ This file is authoritative alongside [GAME_DESIGN.md](GAME_DESIGN.md). It record
 
 - Repository: [MohamedXIV/OutsiderDriver](https://github.com/MohamedXIV/OutsiderDriver).
 - Unity project editor version: **6000.6.0f1** in ProjectSettings/ProjectVersion.txt.
-- Current project began from the **Unity 2D URP template**. Package manifest includes Tilemap, 2D Animation, SpriteShape, Input System and URP; installed packages are not themselves a production design or proof that a feature is working.
-- No prior Godot GDScript, Babylon TypeScript runtime, player/NPC domain implementation, dialogue implementation, or saves have been migrated into this repository.
-- **Documentation completion is not gameplay implementation.** No agent may describe the city, taxi, social world, navigation, languages or relationship systems as currently playable in this repo on the strength of these docs.
+- Clean project structure under `Assets/_Project/` with dedicated `OutsiderDriver.Runtime.asmdef` and `OutsiderDriver.Editor.asmdef`.
+- Initial 2D isometric navigation & vehicle movement verified in `Assets/_Project/Scenes/TaxiSandbox.unity`.
+- Documentation completion is not gameplay implementation. Gameplay features exist only as verified in code.
 
 ## A. Confirmed current owner decisions (APPROVED)
 
@@ -56,6 +56,13 @@ This file is authoritative alongside [GAME_DESIGN.md](GAME_DESIGN.md). It record
 | P-014 | **Unity-native authoring first** | Favor actual static scene objects, isometric tilemaps and normal engine workflows over custom polygon world rendering |
 | P-015 | Architecture should be coherent but **not overengineered** | Avoid monolithic god classes and the opposite extreme of countless meaningless ten-line abstraction files |
 | P-016 | Real user experience and prolonged performance matter | Old Godot playtest suffered progressive FPS drops and vehicle/pedestrian stalls; clean Unity game must be measured, not assumed fast |
+| P-017 | **Continuous real-time simulation clock** | Time advances continuously in real time (like GTA / The Sims), firing discrete coarse ticks (e.g. 1 in-game minute = ~1s) to drive schedules and system updates without per-frame overhead (supersedes O-011) |
+| P-018 | **VContainer dependency injection & LifetimeScopes** | Clean, fast DI container (`GameLifetimeScope` for root services, `SceneLifetimeScope` for scene actors); no monolithic God GameManager |
+| P-019 | **Modern Unity 6 tech stack: UI Toolkit (MVP), Cinemachine 3, Input System, and early Localization** | Modern event-driven UI Toolkit decoupled via Presenters; Cinemachine 3 camera blending between taxi and on-foot modes; early Arabic RTL localization support (supersedes O-020) |
+| P-020 | **Ink dialogue engine integration** | Ink (`ink-unity-integration`) is the canonical narrative engine for branching contextual dialogue, bound to game state via external functions and variable listeners (supersedes O-017 and H-015) |
+| P-021 | **Ambient traffic via GTA-style camera bubble & pooling** | Ambient ground cars spawn/despawn in a radius around the player, obey road nodes, and yield at intersections with right-of-way rules (supersedes O-010) |
+| P-022 | **Character portraits via Layered 2D & Native 2D Animation** | Expressive portraits built from modular layered sprites and Unity's built-in 2D Animation bones; Live2D and Inochi2D rejected (supersedes O-002) |
+| P-023 | **Full DOTS/ECS architecture rejected** | Unnecessary architectural overhead for a budgeted visible entity scale (~20-50 actors); standard C# + object pooling used; Jobs/Burst reserved solely for surgical math optimizations if measured |
 
 ## B. Earlier product decisions retained as direction (not an implementation mandate)
 
@@ -76,9 +83,9 @@ These come from the prior design archive. Unless explicitly overridden, they des
 | H-011 | Legal and informal work access differ; ordinary costs/earnings matter | Retain as lightweight daily-life texture, not a hardcore business sim |
 | H-012 | Home/garage and a few personal places support ordinary life | Retain, subject to the newest **home + own neighborhood** walking scope |
 | H-013 | Optional bonds beyond the taxi: friendships, appointments, occasional romance | Retain as voluntary content; do not convert to a dating-sim system |
-| H-014 | World time ordinarily moves during travel and dialogue, with graceful arrival handling | Retain as player comfort objective; exact pause/accessibility policy OPEN |
-| H-015 | Authored contextual narrative with a consistent source of game truth | Retain concept; using Ink in Unity is OPEN technically |
-| H-016 | Accessibility, legible HUD, Arabic/RTL-aware localization and skippable effects | Retain as product quality goals; final language matrix OPEN |
+| H-014 | World time ordinarily moves during travel and dialogue, with graceful arrival handling | Retain as player comfort objective; continuous real-time clock ratified in P-017 |
+| H-015 | Authored contextual narrative with a consistent source of game truth | Ratified as Ink narrative engine in P-020 |
+| H-016 | Accessibility, legible HUD, Arabic/RTL-aware localization and skippable effects | Ratified early in P-019 via Unity Localization package |
 | H-017 | The old retro-futurism style guide favored tactile, repairable technology, rounded alien design, colored road surfaces and ground vehicles | Retain visual vocabulary but not the original 3D mesh/shader pipeline |
 
 ## C. Explicitly rejected or superseded assumptions
@@ -101,33 +108,36 @@ These come from the prior design archive. Unless explicitly overridden, they des
 | X-014 | 'We should implement every historical issue or automated test before building the new game' | Old repo work is not an import queue |
 | X-015 | 'Green automated checks prove the game feels good and runs well on Windows' | Old real user playtest disproved that assumption |
 | X-016 | 'A beautiful city must be gloomy/neon/rainy or depend on high-end 3D graphics' | Contradicts current bright alien art direction and 2D decision |
+| X-017 | 'A full DOTS/ECS rewrite is required for performance' | Premature overengineering for ~20-50 visible entities; creates severe friction with Ink, UI Toolkit, and 2D animation |
+| X-018 | 'Use Live2D Cubism for character portraits' | Heavy restrictions on free tier, expensive recurring commercial subscription, complex proprietary SDK |
+| X-019 | 'Use Inochi2D for character portraits' | Fragile, experimental, unmaintained community Unity runtime; unnecessary risk |
 
 ## D. Open product questions — leave as TBD; don't choose for the owner
 
 | ID | Topic | Known boundary; what is NOT known |
 | --- | --- | --- |
 | O-001 | In-game art style for small characters | Could be pixel art, stylized sprites, another simple treatment; **not finalized** |
-| O-002 | Portrait animation/runtime | Attractive expressive portraits desired; not committed to sprite sheets, skeletal 2D, Inochi2D or Live2D |
-| O-003 | Camera geometry and specific zoom | 2D isometric, close and cinematic; angle, framing, controls and transitions TBD |
+| O-002 | Portrait animation/runtime | **SETTLED by P-022**: Layered 2D sprites with Unity 2D Animation bones |
+| O-003 | Camera geometry and specific zoom | 2D isometric, close and cinematic; Cinemachine 3 approved in P-019; exact zoom/offsets TBD |
 | O-004 | City map extent | Authored connected districts and coherent journeys; city size, districts/count and geography TBD |
 | O-005 | On-foot boundary beyond starter area | Home and own neighborhood approved initially; other districts and interiors not promised |
 | O-006 | Home/garage layout and interactions | True walkable home and previously intended garage; content and scene scale TBD |
 | O-007 | Taxi manual controls | Semi-auto intent; whether any direct steering/minor intervention exists TBD |
 | O-008 | Passenger acquisition UX | Street hails, app-like offers, underground calls are precedents; exact UI and mix TBD |
 | O-009 | NPC numbers, significance and retention | Some ambient/persistent/significant distinction sensible; exact numbers and thresholds TBD |
-| O-010 | NPC AI implementation | No approved AI toolkit, behavior-tree hierarchy, service manager army or full city simulator |
-| O-011 | Time progression/pausing | Ride/dialogue comfort required; exact simulation clock or pause options TBD |
+| O-010 | NPC AI implementation / Traffic | **SETTLED by P-021**: GTA-style camera bubble & pooling with intersection right-of-way yielding |
+| O-011 | Time progression/pausing | **SETTLED by P-017**: Continuous real-time clock with discrete coarse simulation ticks |
 | O-012 | Human disguise, documents and exposure | Human/illegal premise approved; actual reveal/risk systems TBD |
 | O-013 | Economy specifics | Prices, maintenance, failure state, living cost balance, optional cash difficulty TBD |
 | O-014 | Social representation | Exact traits/stat model, memories, friendship/romance triggers, authored significant cast TBD |
 | O-015 | Language naming and artwork | Historical Common, Local, Cant; final names, cultural naming, scripts and audio TBD |
 | O-016 | Translator progression | Previous binary modules and starter rules guide design; final merchandise/catalog/prices TBD |
-| O-017 | Ink adoption / dialogue integration | Historical useful technology, but no mandatory Unity architecture selected |
+| O-017 | Ink adoption / dialogue integration | **SETTLED by P-020**: Ink canonical narrative engine via `ink-unity-integration` |
 | O-018 | Radio music/production | Alien stations desired; soundtrack format, licenses and content plan TBD |
 | O-019 | Visual asset pipeline | Unity 2D target, artistic references; actual sprite/tile resolutions, lighting, animation and sorting approach TBD |
-| O-020 | Final HUD/navigation/input | Player-oriented clean interface; exact layout, map, keyboard/controller/touch decisions TBD |
+| O-020 | Final HUD/navigation/input | **SETTLED by P-019**: UI Toolkit with MVP Presenters + Unity Input System |
 | O-021 | Platforms and release targets | Unity template alone does not imply shipped Windows/Web/Linux/mobile; targets and performance thresholds TBD |
-| O-022 | Weather/day-night scope | Atmosphere is wanted; detailed dynamic systems not approved |
+| O-022 | Weather/day-night scope | Atmosphere is wanted; continuous clock (P-017) drives lighting transitions; dynamic weather TBD |
 | O-023 | Legal social consequences | Meaningful setting, but surveillance systems, arrests, pursuit, punishments and endings TBD |
 | O-024 | Non-quest special situations | No quests; events can arise from normal life, but no event tree or campaign commitment |
 | O-025 | Asset reference inclusion | User images are present in the conversation, not committed to this repo; agents cannot assume they possess source images |

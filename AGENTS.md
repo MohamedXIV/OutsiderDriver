@@ -10,9 +10,10 @@
 
 1. [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md) — canonical full game design and boundaries.
 2. [docs/DECISIONS_AND_OPEN_QUESTIONS.md](docs/DECISIONS_AND_OPEN_QUESTIONS.md) — exactly what's approved, historical, suggested, unresolved or rejected.
-3. [docs/VISUAL_DIRECTION.md](docs/VISUAL_DIRECTION.md) — art intent, user image-reference descriptions, non-decisions.
-4. [docs/ENGINEERING_PRINCIPLES.md](docs/ENGINEERING_PRINCIPLES.md) — clean Unity approach, production rules and performance discipline.
-5. This repository's **actual current project and source**, open issues and PRs, before changing anything.
+3. [docs/SYSTEMS_ARCHITECTURE.md](docs/SYSTEMS_ARCHITECTURE.md) — technical blueprint: VContainer DI, TimeService, GTA traffic bubble, Ink dialogue, UI Toolkit MVP.
+4. [docs/VISUAL_DIRECTION.md](docs/VISUAL_DIRECTION.md) — art intent, user image-reference descriptions, non-decisions.
+5. [docs/ENGINEERING_PRINCIPLES.md](docs/ENGINEERING_PRINCIPLES.md) — clean Unity approach, production rules and performance discipline.
+6. This repository's **actual current project and source**, open issues and PRs, before changing anything.
 
 If your task touches only one narrow topic, read its relevant sections fully and cross-check the decision status. Do not use this short entry file as a replacement for the full detailed docs.
 

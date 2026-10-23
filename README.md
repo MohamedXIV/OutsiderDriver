@@ -25,6 +25,7 @@ You are an illegal human resident living under a cover identity in a non-human c
 | --- | --- |
 | **[Game Design & DNA](docs/GAME_DESIGN.md)** | Detailed premise, activities, passengers, road travel, walking, residents, relationships, language, radio, economy, world, scope |
 | **[Decisions & Open Questions](docs/DECISIONS_AND_OPEN_QUESTIONS.md)** | What was approved, historically intended, superseded, merely illustrative or still undecided; IDs for every agent |
+| **[Systems Architecture](docs/SYSTEMS_ARCHITECTURE.md)** | Canonical technical blueprint: VContainer DI, TimeService ticks, GTA-style traffic bubble, Ink narrative engine, UI Toolkit MVP, and localization |
 | **[Visual Direction](docs/VISUAL_DIRECTION.md)** | Bright alien retro-futurism, architecture, vehicles, people, cozy home, user-supplied reference interpretations and art-production unknowns |
 | **[Engineering Principles](docs/ENGINEERING_PRINCIPLES.md)** | Unity-native 2D approach, clean production systems, performance validation, and previous mistakes to avoid |
 | **[AGENTS.md](AGENTS.md)** | Mandatory instructions and reading order for contributors and AI agents |
