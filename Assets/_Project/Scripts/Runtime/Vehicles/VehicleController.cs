@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using VContainer;
 using OutsiderDriver.Navigation;
 
 namespace OutsiderDriver.Vehicles
@@ -43,6 +44,15 @@ namespace OutsiderDriver.Vehicles
         public event Action<RoadNode> OnWaypointPassed;
         public event Action<IsometricDirection> OnFacingChanged;
         public event Action<IReadOnlyList<RoadNode>> OnRouteChanged;
+
+        [Inject]
+        public void Construct(RoadNetwork roadNetwork)
+        {
+            if (roadNetwork != null)
+            {
+                _roadNetwork = roadNetwork;
+            }
+        }
 
         private void Start()
         {

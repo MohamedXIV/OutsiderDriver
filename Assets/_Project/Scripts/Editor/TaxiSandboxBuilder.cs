@@ -1,8 +1,13 @@
 using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
+using VContainer.Unity;
+using OutsiderDriver.Core;
+using OutsiderDriver.Core.Time;
 using OutsiderDriver.Navigation;
 using OutsiderDriver.Vehicles;
 using OutsiderDriver.World;
@@ -12,13 +17,23 @@ namespace OutsiderDriver.Editor
     public static class TaxiSandboxBuilder
     {
         private const string ScenePath = "Assets/_Project/Scenes/TaxiSandbox.unity";
+        private const string SettingsFolder = "Assets/_Project/Settings";
+        private const string TimeConfigPath = "Assets/_Project/Settings/TimeConfig.asset";
 
         [MenuItem("Outsider Driver/Build Taxi Sandbox Scene")]
         public static void BuildScene()
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-            // 1. Camera
+            // Ensure TimeConfigSO exists
+            var timeConfig = EnsureTimeConfigAsset();
+
+            // 1. Root Kernel Scope (GameLifetimeScope)
+            var rootScopeGo = new GameObject("GameLifetimeScope");
+            var gameScope = rootScopeGo.AddComponent<GameLifetimeScope>();
+            SetPrivateField(gameScope, "_timeConfig", timeConfig);
+
+            // 2. Camera
             var camGo = new GameObject("Main Camera");
             camGo.tag = "MainCamera";
             var cam = camGo.AddComponent<Camera>();
@@ -30,14 +45,14 @@ namespace OutsiderDriver.Editor
             var camFollow = camGo.AddComponent<IsometricCameraFollow>();
             camGo.transform.position = new Vector3(0f, 0f, -10f);
 
-            // 2. Global 2D Light
+            // 3. Global 2D Light
             var lightGo = new GameObject("Global Light 2D");
             var light2D = lightGo.AddComponent<Light2D>();
             light2D.lightType = Light2D.LightType.Global;
             light2D.color = new Color(0.95f, 0.92f, 0.88f); // Warm alien daylight
             light2D.intensity = 1.0f;
 
-            // 3. Road Network
+            // 4. Road Network
             var networkGo = new GameObject("RoadNetwork");
             var roadNetwork = networkGo.AddComponent<RoadNetwork>();
 
@@ -57,19 +72,18 @@ namespace OutsiderDriver.Editor
 
             roadNetwork.RebuildNetwork();
 
-            // 4. Taxi
+            // 5. Taxi
             var taxiGo = new GameObject("Taxi");
             taxiGo.transform.position = homeNode.transform.position;
 
-            var vehicle = taxiGo.AddComponent<VehicleController>();
-            var driver = taxiGo.AddComponent<TaxiTestDriver>();
+            taxiGo.AddComponent<VehicleController>();
+            taxiGo.AddComponent<TaxiTestDriver>();
 
             // Visual representation
             var visualsGo = new GameObject("Visuals");
             visualsGo.transform.SetParent(taxiGo.transform, false);
             var sr = visualsGo.AddComponent<SpriteRenderer>();
 
-            // Use built-in Unity 2D sprite
             var defaultSprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd");
             if (defaultSprite == null)
             {
@@ -77,11 +91,17 @@ namespace OutsiderDriver.Editor
             }
             sr.sprite = defaultSprite;
             sr.color = new Color(1f, 0.78f, 0.28f); // Warm retro-futurist taxi yellow/amber
-            visualsGo.transform.localScale = new Vector3(0.7f, 0.5f, 1f); // Flattened 2:1 isometric vehicle footprint
+            visualsGo.transform.localScale = new Vector3(0.7f, 0.5f, 1f);
 
             // Link camera
             camFollow.Target = taxiGo.transform;
             camFollow.SnapToTarget();
+
+            // 6. Scene Lifetime Scope (CitySceneLifetimeScope)
+            var sceneScopeGo = new GameObject("CitySceneLifetimeScope");
+            var cityScope = sceneScopeGo.AddComponent<CitySceneLifetimeScope>();
+            cityScope.parentReference = ParentReference.Create<GameLifetimeScope>();
+            SetPrivateField(cityScope, "autoInjectGameObjects", new List<GameObject> { networkGo, taxiGo });
 
             // Save Scene
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -91,19 +111,33 @@ namespace OutsiderDriver.Editor
             Debug.Log($"[TaxiSandboxBuilder] Successfully generated and saved scene at {ScenePath}");
         }
 
+        private static TimeConfigSO EnsureTimeConfigAsset()
+        {
+            if (!Directory.Exists(SettingsFolder))
+            {
+                Directory.CreateDirectory(SettingsFolder);
+                AssetDatabase.Refresh();
+            }
+
+            var existing = AssetDatabase.LoadAssetAtPath<TimeConfigSO>(TimeConfigPath);
+            if (existing != null)
+            {
+                return existing;
+            }
+
+            var config = ScriptableObject.CreateInstance<TimeConfigSO>();
+            AssetDatabase.CreateAsset(config, TimeConfigPath);
+            AssetDatabase.SaveAssets();
+            return config;
+        }
+
         private static RoadNode CreateNode(string id, Vector3 position, Transform parent)
         {
             var go = new GameObject($"Node_{id}");
             go.transform.SetParent(parent, false);
             go.transform.position = position;
             var node = go.AddComponent<RoadNode>();
-
-            var field = typeof(RoadNode).GetField("_nodeId", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            if (field != null)
-            {
-                field.SetValue(node, id);
-            }
-
+            SetPrivateField(node, "_nodeId", id);
             return node;
         }
 
@@ -113,6 +147,21 @@ namespace OutsiderDriver.Editor
             b.AddConnection(a);
             EditorUtility.SetDirty(a);
             EditorUtility.SetDirty(b);
+        }
+
+        private static void SetPrivateField(object target, string fieldName, object value)
+        {
+            var type = target.GetType();
+            while (type != null)
+            {
+                var field = type.GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
+                if (field != null)
+                {
+                    field.SetValue(target, value);
+                    return;
+                }
+                type = type.BaseType;
+            }
         }
     }
 }

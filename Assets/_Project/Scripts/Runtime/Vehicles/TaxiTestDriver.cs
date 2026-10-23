@@ -1,13 +1,14 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using VContainer;
+using OutsiderDriver.Core.Time;
 using OutsiderDriver.Navigation;
 
 namespace OutsiderDriver.Vehicles
 {
     /// <summary>
-    /// Demonstrates and validates semi-autonomous taxi travel across road nodes in the test sandbox.
-    /// Can automatically route between random or sequential landmarks on the road network.
+    /// Demonstrates and validates semi-autonomous taxi travel and continuous world clock in the test sandbox.
     /// </summary>
     [RequireComponent(typeof(VehicleController))]
     public class TaxiTestDriver : MonoBehaviour
@@ -21,8 +22,19 @@ namespace OutsiderDriver.Vehicles
         [SerializeField] private RoadNetwork _roadNetwork;
 
         private VehicleController _vehicle;
+        private ITimeService _timeService;
         private float _stopTimer = 0f;
         private bool _isWaiting = false;
+
+        [Inject]
+        public void Construct(RoadNetwork roadNetwork, ITimeService timeService)
+        {
+            if (roadNetwork != null)
+            {
+                _roadNetwork = roadNetwork;
+            }
+            _timeService = timeService;
+        }
 
         private void Awake()
         {
@@ -108,19 +120,34 @@ namespace OutsiderDriver.Vehicles
 
         private void OnGUI()
         {
-            GUILayout.BeginArea(new Rect(10, 10, 320, 150), GUI.skin.box);
-            GUILayout.Label("<b>Outsider Driver - Taxi Prototype</b>");
+            GUILayout.BeginArea(new Rect(10, 10, 340, 190), GUI.skin.box);
+            GUILayout.Label("<b>Outsider Driver - Taxi & Kernel Sandbox</b>");
+
+            string clockText = _timeService != null
+                ? $"{_timeService.CurrentTime} {(_timeService.IsPaused ? "[PAUSED]" : "")}"
+                : "No TimeService Injected";
+            GUILayout.Label($"World Clock: {clockText}");
+
             GUILayout.Label($"Speed: {_vehicle.CurrentSpeed:F1} / {_vehicle.MaxSpeed:F1} m/s");
             GUILayout.Label($"Facing: {_vehicle.CurrentFacing}");
             GUILayout.Label($"Target: {(_vehicle.CurrentTargetNode != null ? _vehicle.CurrentTargetNode.NodeId : "None")}");
             GUILayout.Label($"Destination: {(_vehicle.DestinationNode != null ? _vehicle.DestinationNode.NodeId : "Idle")}");
+
             if (GUILayout.Button("Pick New Random Destination (Space)"))
             {
                 _isWaiting = false;
                 NavigateToRandomNode();
             }
+
+            if (_timeService != null)
+            {
+                if (GUILayout.Button(_timeService.IsPaused ? "Resume Clock" : "Pause Clock"))
+                {
+                    if (_timeService.IsPaused) _timeService.Resume();
+                    else _timeService.Pause();
+                }
+            }
             GUILayout.EndArea();
         }
     }
 }
-
