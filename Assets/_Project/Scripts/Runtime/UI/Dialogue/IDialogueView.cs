@@ -25,6 +25,8 @@ namespace OutsiderDriver.UI.Dialogue
         void SetContinueButtonVisible(bool visible);
         void SetChoices(IReadOnlyList<DialogueChoice> choices);
         void SetArrivalBannerVisible(bool visible, string message = null);
+        void SetButtonLabels(string continueLabel, string silentLabel);
+        void ApplyTextDirection(bool isRtl);
         void ClearView();
     }
 }

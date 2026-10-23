@@ -191,6 +191,39 @@ namespace OutsiderDriver.UI.Dialogue
             }
         }
 
+        public void SetButtonLabels(string continueLabel, string silentLabel)
+        {
+            if (_continueButton != null && !string.IsNullOrEmpty(continueLabel))
+            {
+                _continueButton.text = continueLabel;
+            }
+
+            if (_staySilentButton != null && !string.IsNullOrEmpty(silentLabel))
+            {
+                _staySilentButton.text = silentLabel;
+            }
+        }
+
+        public void ApplyTextDirection(bool isRtl)
+        {
+            var alignment = isRtl ? TextAnchor.MiddleRight : TextAnchor.MiddleLeft;
+
+            if (_dialogueBodyLabel != null)
+            {
+                _dialogueBodyLabel.style.unityTextAlign = alignment;
+            }
+
+            if (_speakerLabel != null)
+            {
+                _speakerLabel.style.unityTextAlign = alignment;
+            }
+
+            if (_arrivalBannerLabel != null)
+            {
+                _arrivalBannerLabel.style.unityTextAlign = alignment;
+            }
+        }
+
         public void ClearView()
         {
             SetDialogueText(string.Empty, true);

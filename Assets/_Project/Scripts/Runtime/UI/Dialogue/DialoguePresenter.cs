@@ -5,6 +5,7 @@ using VContainer;
 using VContainer.Unity;
 using OutsiderDriver.Data;
 using OutsiderDriver.Dialogue;
+using OutsiderDriver.Localization;
 using OutsiderDriver.Rides;
 
 namespace OutsiderDriver.UI.Dialogue
@@ -21,6 +22,7 @@ namespace OutsiderDriver.UI.Dialogue
         private readonly IDialogueService _dialogueService;
         private readonly IDialogueView _view;
         private readonly IRideLifecycleService _rideService;
+        private readonly ILocalizationService _localizationService;
 
         private PassengerDefinitionSO _activePassenger;
 
@@ -28,11 +30,13 @@ namespace OutsiderDriver.UI.Dialogue
         public DialoguePresenter(
             IDialogueService dialogueService,
             IDialogueView view,
-            IRideLifecycleService rideService = null)
+            IRideLifecycleService rideService = null,
+            ILocalizationService localizationService = null)
         {
             _dialogueService = dialogueService ?? throw new ArgumentNullException(nameof(dialogueService));
             _view = view ?? throw new ArgumentNullException(nameof(view));
             _rideService = rideService;
+            _localizationService = localizationService;
         }
 
         public void Start()
@@ -45,6 +49,12 @@ namespace OutsiderDriver.UI.Dialogue
             _view.OnContinueClicked += HandleContinueClicked;
             _view.OnStaySilentClicked += HandleStaySilentClicked;
             _view.OnChoiceSelected += HandleChoiceSelected;
+
+            if (_localizationService != null)
+            {
+                _localizationService.OnLocaleChanged += HandleLocaleChanged;
+                UpdateViewLocalization();
+            }
 
             if (_rideService != null)
             {
@@ -65,6 +75,11 @@ namespace OutsiderDriver.UI.Dialogue
             _view.OnContinueClicked -= HandleContinueClicked;
             _view.OnStaySilentClicked -= HandleStaySilentClicked;
             _view.OnChoiceSelected -= HandleChoiceSelected;
+
+            if (_localizationService != null)
+            {
+                _localizationService.OnLocaleChanged -= HandleLocaleChanged;
+            }
 
             if (_rideService != null)
             {
@@ -125,6 +140,11 @@ namespace OutsiderDriver.UI.Dialogue
                 : line.SpeakerId;
 
             string formattedText = FormatLineForComprehension(line);
+            if (line.IsUnderstoodByPlayer && _localizationService != null)
+            {
+                formattedText = _localizationService.FormatTextForDisplay(formattedText);
+                displayName = _localizationService.FormatTextForDisplay(displayName);
+            }
 
             _view.SetSpeakerInfo(displayName, line.Mood, line.LanguageId, line.IsUnderstoodByPlayer);
             _view.SetDialogueText(formattedText, line.IsUnderstoodByPlayer);
@@ -138,7 +158,22 @@ namespace OutsiderDriver.UI.Dialogue
 
         private void HandleChoicesPresented(IReadOnlyList<DialogueChoice> choices)
         {
-            _view.SetChoices(choices);
+            if (_localizationService != null && choices != null && choices.Count > 0)
+            {
+                var localizedChoices = new List<DialogueChoice>(choices.Count);
+                for (int i = 0; i < choices.Count; i++)
+                {
+                    var c = choices[i];
+                    string formatted = _localizationService.FormatTextForDisplay(c.Text);
+                    localizedChoices.Add(new DialogueChoice(c.Index, formatted));
+                }
+                _view.SetChoices(localizedChoices);
+            }
+            else
+            {
+                _view.SetChoices(choices);
+            }
+
             _view.SetContinueButtonVisible(false);
         }
 
@@ -187,8 +222,25 @@ namespace OutsiderDriver.UI.Dialogue
             // not silently cutting off an active sentence.
             if (_dialogueService.IsConversationActive && _view.IsVisible)
             {
-                _view.SetArrivalBannerVisible(true, "Arrived at destination — finish speaking whenever ready.");
+                string msg = _localizationService != null
+                    ? _localizationService.GetLocalizedString(LocalizationService.TableUI, "hud_arrival_banner")
+                    : "Arrived at destination — finish speaking whenever ready.";
+                _view.SetArrivalBannerVisible(true, msg);
             }
+        }
+
+        private void HandleLocaleChanged(string newLocale)
+        {
+            UpdateViewLocalization();
+        }
+
+        private void UpdateViewLocalization()
+        {
+            if (_localizationService == null) return;
+            string continueText = _localizationService.GetLocalizedString(LocalizationService.TableUI, "ui_continue");
+            string silentText = $"[{_localizationService.GetLocalizedString(LocalizationService.TableUI, "ui_stay_silent")}]";
+            _view.SetButtonLabels(continueText, silentText);
+            _view.ApplyTextDirection(_localizationService.IsRtl);
         }
 
         private void HandleRideCompleted(RideSettlementResult settlement)

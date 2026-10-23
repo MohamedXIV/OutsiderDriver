@@ -219,6 +219,10 @@ We are almost there, let me tell you one more thing. #speaker:Lyra #lang:Common 
                 ArrivalBannerMessage = message;
             }
 
+            public void SetButtonLabels(string continueLabel, string silentLabel) { }
+
+            public void ApplyTextDirection(bool isRtl) { }
+
             public void ClearView()
             {
                 LastDialogueText = string.Empty;

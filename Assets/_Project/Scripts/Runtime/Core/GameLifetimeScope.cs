@@ -4,6 +4,7 @@ using VContainer.Unity;
 using OutsiderDriver.Core.State;
 using OutsiderDriver.Core.Time;
 using OutsiderDriver.Dialogue;
+using OutsiderDriver.Localization;
 
 namespace OutsiderDriver.Core
 {
@@ -37,6 +38,9 @@ namespace OutsiderDriver.Core
 
             builder.Register<InkDialogueService>(Lifetime.Singleton)
                 .As<IDialogueService>();
+
+            builder.Register<LocalizationService>(Lifetime.Singleton)
+                .As<ILocalizationService>();
         }
     }
 }
