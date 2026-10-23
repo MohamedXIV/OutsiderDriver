@@ -6,6 +6,7 @@
         "UnityEditor.TestRunner",
         "OutsiderDriver.Runtime",
         "VContainer",
+        "Unity.Cinemachine",
         "Ink-Libraries",
         "InkEditor"
     ],

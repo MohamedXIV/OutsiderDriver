@@ -11,6 +11,7 @@ using VContainer.Unity;
 using OutsiderDriver.Core;
 using OutsiderDriver.Core.Time;
 using OutsiderDriver.Navigation;
+using OutsiderDriver.Player;
 using OutsiderDriver.Vehicles;
 using OutsiderDriver.World;
 
@@ -82,7 +83,7 @@ namespace OutsiderDriver.Editor
             var taxiGo = new GameObject("Taxi");
             taxiGo.transform.position = homeNode.transform.position;
 
-            taxiGo.AddComponent<VehicleController>();
+            var taxiVehicle = taxiGo.AddComponent<VehicleController>();
             taxiGo.AddComponent<TaxiTestDriver>();
 
             // Visual representation
@@ -100,16 +101,46 @@ namespace OutsiderDriver.Editor
             var trafficDirector = trafficGo.AddComponent<TrafficDirector>();
             trafficDirector.BubbleCenter = taxiGo.transform;
 
-            // 8. Cinemachine 3 Virtual Camera
-            var vcamGo = new GameObject("Cinemachine Camera (Taxi)");
-            var vcam = vcamGo.AddComponent<CinemachineCamera>();
-            vcam.Target.TrackingTarget = taxiGo.transform;
-            vcam.Lens.ModeOverride = LensSettings.OverrideModes.Orthographic;
-            vcam.Lens.OrthographicSize = 5f;
-            var follow = vcamGo.AddComponent<CinemachineFollow>();
-            follow.FollowOffset = new Vector3(0f, 0f, -10f);
+            // 8. Driver On-Foot Actor (Bounded Home & Starter Street Scope - Decision P-009)
+            var neighborhoodLayout = neighborhoodGo.GetComponent<HomeNeighborhoodLayout>();
+            var driverGo = new GameObject("Driver_OnFoot");
+            driverGo.transform.position = neighborhoodLayout.StreetSidewalkSpawnPoint != null
+                ? neighborhoodLayout.StreetSidewalkSpawnPoint.position
+                : new Vector3(-2.5f, 1.5f, 0f);
 
-            // 9. Scene Lifetime Scope (CitySceneLifetimeScope)
+            var playerController = driverGo.AddComponent<PlayerController>();
+
+            var driverVisualsGo = new GameObject("DriverVisuals");
+            driverVisualsGo.transform.SetParent(driverGo.transform, false);
+            var driverSr = driverVisualsGo.AddComponent<SpriteRenderer>();
+            driverSr.sprite = defaultSprite;
+            driverSr.color = new Color(0.95f, 0.48f, 0.36f); // Warm coral coat
+            driverVisualsGo.transform.localScale = new Vector3(0.42f, 0.62f, 1f);
+
+            // 9. Cinemachine 3 Virtual Cameras (Taxi & On-Foot with priority blending)
+            var taxiVcamGo = new GameObject("Cinemachine Camera (Taxi)");
+            var taxiVcam = taxiVcamGo.AddComponent<CinemachineCamera>();
+            taxiVcam.Target.TrackingTarget = taxiGo.transform;
+            taxiVcam.Lens.ModeOverride = LensSettings.OverrideModes.Orthographic;
+            taxiVcam.Lens.OrthographicSize = 5f;
+            taxiVcam.Priority.Value = PlayerController.ActiveCameraPriority;
+            var taxiFollow = taxiVcamGo.AddComponent<CinemachineFollow>();
+            taxiFollow.FollowOffset = new Vector3(0f, 0f, -10f);
+
+            var onFootVcamGo = new GameObject("Cinemachine Camera (OnFoot)");
+            var onFootVcam = onFootVcamGo.AddComponent<CinemachineCamera>();
+            onFootVcam.Target.TrackingTarget = driverGo.transform;
+            onFootVcam.Lens.ModeOverride = LensSettings.OverrideModes.Orthographic;
+            onFootVcam.Lens.OrthographicSize = 3.75f;
+            onFootVcam.Priority.Value = PlayerController.InactiveCameraPriority;
+            var onFootFollow = onFootVcamGo.AddComponent<CinemachineFollow>();
+            onFootFollow.FollowOffset = new Vector3(0f, 0f, -10f);
+
+            playerController.Construct(neighborhoodLayout, taxiVehicle, trafficDirector);
+            playerController.AssignVisualsRoot(driverVisualsGo);
+            playerController.AssignCameras(taxiVcam, onFootVcam);
+
+            // 10. Scene Lifetime Scope (CitySceneLifetimeScope)
             var sceneScopeGo = new GameObject("CitySceneLifetimeScope");
             var cityScope = sceneScopeGo.AddComponent<CitySceneLifetimeScope>();
             cityScope.parentReference = ParentReference.Create<GameLifetimeScope>();
@@ -118,7 +149,8 @@ namespace OutsiderDriver.Editor
                 neighborhoodGo,
                 networkGo,
                 taxiGo,
-                trafficGo
+                trafficGo,
+                driverGo
             });
 
             // Save Scene
