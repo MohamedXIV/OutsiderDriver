@@ -5,12 +5,14 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.Tilemaps;
 using Unity.Cinemachine;
 using VContainer.Unity;
 using OutsiderDriver.Core;
 using OutsiderDriver.Core.Time;
 using OutsiderDriver.Navigation;
 using OutsiderDriver.Vehicles;
+using OutsiderDriver.World;
 
 namespace OutsiderDriver.Editor
 {
@@ -52,13 +54,17 @@ namespace OutsiderDriver.Editor
             light2D.color = new Color(0.95f, 0.92f, 0.88f); // Warm alien daylight
             light2D.intensity = 1.0f;
 
-            // 4. Road Network
+            // 4. Authored Walkable Home & Starter Street Layout (Native 2D Isometric Grid & Tilemaps)
+            var neighborhoodGo = BuildHomeNeighborhoodLayout();
+
+            // 5. Road Network
             var networkGo = new GameObject("RoadNetwork");
             var roadNetwork = networkGo.AddComponent<RoadNetwork>();
 
-            // Create nodes in 2:1 isometric arrangement
+            // Create nodes in 2:1 isometric arrangement aligned with the starter neighborhood street
             var homeNode = CreateNode("HomeGarage", new Vector3(0f, 0f, 0f), networkGo.transform);
             var centralNode = CreateNode("CentralJunction", new Vector3(6f, 3f, 0f), networkGo.transform);
+            centralNode.Priority = RoadNodePriority.YieldIntersection;
             var marketNode = CreateNode("MarketSquare", new Vector3(12f, 0f, 0f), networkGo.transform);
             var transitNode = CreateNode("TransitTerminal", new Vector3(6f, -3f, 0f), networkGo.transform);
             var vistaNode = CreateNode("RiversideVista", new Vector3(0f, 6f, 0f), networkGo.transform);
@@ -72,7 +78,7 @@ namespace OutsiderDriver.Editor
 
             roadNetwork.RebuildNetwork();
 
-            // 5. Taxi
+            // 6. Taxi
             var taxiGo = new GameObject("Taxi");
             taxiGo.transform.position = homeNode.transform.position;
 
@@ -84,16 +90,17 @@ namespace OutsiderDriver.Editor
             visualsGo.transform.SetParent(taxiGo.transform, false);
             var sr = visualsGo.AddComponent<SpriteRenderer>();
 
-            var defaultSprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd");
-            if (defaultSprite == null)
-            {
-                defaultSprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f));
-            }
+            var defaultSprite = GetDefaultSprite();
             sr.sprite = defaultSprite;
             sr.color = new Color(1f, 0.78f, 0.28f); // Warm retro-futurist taxi yellow/amber
             visualsGo.transform.localScale = new Vector3(0.7f, 0.5f, 1f);
 
-            // 6. Cinemachine 3 Virtual Camera
+            // 7. Traffic Director (GTA-style camera bubble)
+            var trafficGo = new GameObject("TrafficDirector");
+            var trafficDirector = trafficGo.AddComponent<TrafficDirector>();
+            trafficDirector.BubbleCenter = taxiGo.transform;
+
+            // 8. Cinemachine 3 Virtual Camera
             var vcamGo = new GameObject("Cinemachine Camera (Taxi)");
             var vcam = vcamGo.AddComponent<CinemachineCamera>();
             vcam.Target.TrackingTarget = taxiGo.transform;
@@ -102,11 +109,17 @@ namespace OutsiderDriver.Editor
             var follow = vcamGo.AddComponent<CinemachineFollow>();
             follow.FollowOffset = new Vector3(0f, 0f, -10f);
 
-            // 7. Scene Lifetime Scope (CitySceneLifetimeScope)
+            // 9. Scene Lifetime Scope (CitySceneLifetimeScope)
             var sceneScopeGo = new GameObject("CitySceneLifetimeScope");
             var cityScope = sceneScopeGo.AddComponent<CitySceneLifetimeScope>();
             cityScope.parentReference = ParentReference.Create<GameLifetimeScope>();
-            SetPrivateField(cityScope, "autoInjectGameObjects", new List<GameObject> { networkGo, taxiGo });
+            SetPrivateField(cityScope, "autoInjectGameObjects", new List<GameObject>
+            {
+                neighborhoodGo,
+                networkGo,
+                taxiGo,
+                trafficGo
+            });
 
             // Save Scene
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -114,6 +127,129 @@ namespace OutsiderDriver.Editor
             AssetDatabase.Refresh();
 
             Debug.Log($"[TaxiSandboxBuilder] Successfully generated and saved scene at {ScenePath}");
+        }
+
+        private static GameObject BuildHomeNeighborhoodLayout()
+        {
+            var layoutRoot = new GameObject("HomeNeighborhoodLayout");
+            var layout = layoutRoot.AddComponent<HomeNeighborhoodLayout>();
+            layout.EnsureIsometricGridConfigured();
+
+            Grid isoGrid = layout.IsometricGrid;
+
+            // Create Isometric Tilemaps (Street Surface, Home Floor, Obstacles/Walls)
+            var streetTilemap = CreateIsometricTilemap(isoGrid.transform, "StreetSurface_Tilemap", sortingOrder: -20);
+            var homeFloorTilemap = CreateIsometricTilemap(isoGrid.transform, "HomeInterior_Tilemap", sortingOrder: -15);
+            var obstaclesTilemap = CreateIsometricTilemap(isoGrid.transform, "WallsAndCurbs_Tilemap", sortingOrder: 0);
+            obstaclesTilemap.gameObject.AddComponent<TilemapCollider2D>();
+
+            layout.AssignTilemaps(streetTilemap, homeFloorTilemap, obstaclesTilemap);
+
+            // Bounded Walkable Zones (Decision P-009)
+            var homeZoneGo = new GameObject("Zone_HomeInterior");
+            homeZoneGo.transform.SetParent(layoutRoot.transform, false);
+            homeZoneGo.transform.position = new Vector3(-4.5f, 2.5f, 0f);
+            var homeZone = homeZoneGo.AddComponent<WalkableZone>();
+            homeZone.Configure("zone_home_interior", "Driver's Apartment", WalkableZoneType.HomeInterior, new Rect(-3f, -2f, 6f, 4f));
+
+            var streetZoneGo = new GameObject("Zone_StarterStreetSidewalk");
+            streetZoneGo.transform.SetParent(layoutRoot.transform, false);
+            streetZoneGo.transform.position = new Vector3(-1f, 0.5f, 0f);
+            var streetZone = streetZoneGo.AddComponent<WalkableZone>();
+            streetZone.Configure("zone_starter_sidewalk", "Amber Terrace Curbside", WalkableZoneType.NeighborhoodSidewalk, new Rect(-4f, -2.5f, 8f, 5f));
+
+            // Key Spawn Anchors & Domestic Interactables
+            Sprite propSprite = GetDefaultSprite();
+
+            var homeSpawnGo = CreatePropWithInteractable(
+                layoutRoot.transform,
+                "HomeBed_Interactable",
+                new Vector3(-5.5f, 3.2f, 0f),
+                new Color(0.88f, 0.52f, 0.38f), // Warm terracotta bedding
+                propSprite,
+                "interact_home_bed",
+                "Rest / Pass Time",
+                InteractableKind.HomeBed);
+
+            CreatePropWithInteractable(
+                layoutRoot.transform,
+                "TranslationBench_Interactable",
+                new Vector3(-3.5f, 3.0f, 0f),
+                new Color(0.42f, 0.78f, 0.72f), // Retro-futurist teal console
+                propSprite,
+                "interact_translation_bench",
+                "Translator & Radio Console",
+                InteractableKind.TranslationWorkbench);
+
+            var sidewalkSpawnGo = CreatePropWithInteractable(
+                layoutRoot.transform,
+                "ApartmentDoor_Interactable",
+                new Vector3(-2.5f, 1.5f, 0f),
+                new Color(0.92f, 0.76f, 0.45f), // Ochre doorway threshold
+                propSprite,
+                "interact_apartment_door",
+                "Enter / Exit Apartment",
+                InteractableKind.DoorwayThreshold);
+
+            var taxiBayGo = CreatePropWithInteractable(
+                layoutRoot.transform,
+                "ParkedTaxiBay_Interactable",
+                new Vector3(0f, 0f, 0f),
+                new Color(0.95f, 0.82f, 0.32f), // Amber garage bay marker
+                propSprite,
+                "interact_taxi_bay",
+                "Board / Exit Taxi",
+                InteractableKind.ParkedTaxiBay);
+
+            layout.AssignAnchors(homeSpawnGo.transform, sidewalkSpawnGo.transform, taxiBayGo.transform);
+            layout.RebuildLayoutRegistry();
+
+            return layoutRoot;
+        }
+
+        private static Tilemap CreateIsometricTilemap(Transform gridParent, string name, int sortingOrder)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(gridParent, false);
+            var tilemap = go.AddComponent<Tilemap>();
+            var renderer = go.AddComponent<TilemapRenderer>();
+            renderer.sortOrder = TilemapRenderer.SortOrder.BottomLeft;
+            renderer.mode = TilemapRenderer.Mode.Individual;
+            renderer.sortingOrder = sortingOrder;
+            return tilemap;
+        }
+
+        private static GameObject CreatePropWithInteractable(
+            Transform parent,
+            string objectName,
+            Vector3 position,
+            Color tint,
+            Sprite sprite,
+            string interactableId,
+            string promptLabel,
+            InteractableKind kind)
+        {
+            var go = new GameObject(objectName);
+            go.transform.SetParent(parent, false);
+            go.transform.position = position;
+
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = sprite;
+            sr.color = tint;
+
+            var interactable = go.AddComponent<NeighborhoodInteractable>();
+            interactable.Configure(interactableId, promptLabel, kind, interactionRadius: 1.35f);
+            return go;
+        }
+
+        private static Sprite GetDefaultSprite()
+        {
+            var defaultSprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd");
+            if (defaultSprite == null)
+            {
+                defaultSprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f));
+            }
+            return defaultSprite;
         }
 
         private static TimeConfigSO EnsureTimeConfigAsset()
