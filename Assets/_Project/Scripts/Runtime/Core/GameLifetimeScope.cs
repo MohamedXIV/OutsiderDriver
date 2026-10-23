@@ -1,6 +1,7 @@
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;
+using OutsiderDriver.Core.State;
 using OutsiderDriver.Core.Time;
 
 namespace OutsiderDriver.Core
@@ -29,6 +30,9 @@ namespace OutsiderDriver.Core
                 .WithParameter(_timeConfig)
                 .As<ITimeService>()
                 .As<ITickable>();
+
+            builder.Register<PlayerStateService>(Lifetime.Singleton)
+                .As<IPlayerStateService>();
         }
     }
 }
