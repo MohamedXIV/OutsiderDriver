@@ -3,12 +3,13 @@ using VContainer;
 using VContainer.Unity;
 using OutsiderDriver.Navigation;
 using OutsiderDriver.Rides;
+using OutsiderDriver.UI.Dialogue;
 using OutsiderDriver.Vehicles;
 
 namespace OutsiderDriver.Core
 {
     /// <summary>
-    /// Per-scene VContainer dependency injection scope for city navigation, traffic, ride lifecycle, and local actors.
+    /// Per-scene VContainer dependency injection scope for city navigation, traffic, ride lifecycle, UI presenters, and local actors.
     /// </summary>
     [DisallowMultipleComponent]
     public class CitySceneLifetimeScope : LifetimeScope
@@ -19,6 +20,13 @@ namespace OutsiderDriver.Core
             builder.RegisterComponentInHierarchy<VehicleController>();
             builder.RegisterComponentInHierarchy<TrafficDirector>();
             builder.Register<RideLifecycleService>(Lifetime.Scoped).As<IRideLifecycleService>();
+
+            var dialogueView = FindAnyObjectByType<DialogueView>();
+            if (dialogueView != null)
+            {
+                builder.RegisterComponent(dialogueView).As<IDialogueView>();
+                builder.RegisterEntryPoint<DialoguePresenter>(Lifetime.Scoped);
+            }
         }
     }
 }
