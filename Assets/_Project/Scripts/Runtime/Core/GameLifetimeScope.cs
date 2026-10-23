@@ -3,6 +3,7 @@ using VContainer;
 using VContainer.Unity;
 using OutsiderDriver.Core.State;
 using OutsiderDriver.Core.Time;
+using OutsiderDriver.Dialogue;
 
 namespace OutsiderDriver.Core
 {
@@ -33,6 +34,9 @@ namespace OutsiderDriver.Core
 
             builder.Register<PlayerStateService>(Lifetime.Singleton)
                 .As<IPlayerStateService>();
+
+            builder.Register<InkDialogueService>(Lifetime.Singleton)
+                .As<IDialogueService>();
         }
     }
 }

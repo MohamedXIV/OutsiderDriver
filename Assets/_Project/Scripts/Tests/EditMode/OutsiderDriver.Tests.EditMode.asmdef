@@ -5,7 +5,9 @@
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
         "OutsiderDriver.Runtime",
-        "VContainer"
+        "VContainer",
+        "Ink-Libraries",
+        "InkEditor"
     ],
     "includePlatforms": [
         "Editor"
