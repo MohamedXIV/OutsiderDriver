@@ -5,6 +5,7 @@
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
         "OutsiderDriver.Runtime",
+        "Unity.2D.Animation.Runtime",
         "VContainer",
         "Unity.Cinemachine",
         "Unity.Localization",

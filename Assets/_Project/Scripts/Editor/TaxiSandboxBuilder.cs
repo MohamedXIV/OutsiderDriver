@@ -14,6 +14,7 @@ using OutsiderDriver.Core.Time;
 using OutsiderDriver.Navigation;
 using OutsiderDriver.Player;
 using OutsiderDriver.Vehicles;
+using OutsiderDriver.Visuals.Portraits;
 using OutsiderDriver.World;
 
 namespace OutsiderDriver.Editor
@@ -25,6 +26,7 @@ namespace OutsiderDriver.Editor
         private const string TimeConfigPath = "Assets/_Project/Settings/TimeConfig.asset";
         private const string AmberWaveStationPath = "Assets/_Project/Settings/RadioStation_AmberWave.asset";
         private const string VesperChimesStationPath = "Assets/_Project/Settings/RadioStation_VesperChimes.asset";
+        private const string DefaultPortraitRigConfigPath = "Assets/_Project/Settings/PortraitRigConfig_DefaultPassenger.asset";
 
         [MenuItem("Outsider Driver/Build Taxi Sandbox Scene")]
         public static void BuildScene()
@@ -149,7 +151,15 @@ namespace OutsiderDriver.Editor
             var radioController = radioGo.AddComponent<RadioAudioController>();
             radioController.ConfigureStations(radioStations, startOn: true);
 
-            // 11. Scene Lifetime Scope (CitySceneLifetimeScope)
+            // 11. Layered 2D Character Portrait Rig (Unity 2D Animation Bones & SpriteResolvers)
+            var portraitRigConfig = EnsureDefaultPortraitRigConfig(defaultSprite);
+            var portraitRigGo = new GameObject("PassengerPortraitRig");
+            portraitRigGo.transform.position = new Vector3(-6.5f, 3.8f, 0f);
+            var portraitRig = portraitRigGo.AddComponent<CharacterPortraitRig>();
+            portraitRig.EnsureRigHierarchy();
+            portraitRig.ApplyRigConfig(portraitRigConfig);
+
+            // 12. Scene Lifetime Scope (CitySceneLifetimeScope)
             var sceneScopeGo = new GameObject("CitySceneLifetimeScope");
             var cityScope = sceneScopeGo.AddComponent<CitySceneLifetimeScope>();
             cityScope.parentReference = ParentReference.Create<GameLifetimeScope>();
@@ -160,7 +170,8 @@ namespace OutsiderDriver.Editor
                 taxiGo,
                 trafficGo,
                 driverGo,
-                radioGo
+                radioGo,
+                portraitRigGo
             });
 
             // Save Scene
@@ -375,6 +386,44 @@ namespace OutsiderDriver.Editor
 
             AssetDatabase.SaveAssets();
             return new List<RadioStationSO> { amberWave, vesperChimes };
+        }
+
+        private static CharacterPortraitRigConfigSO EnsureDefaultPortraitRigConfig(Sprite fallbackSprite)
+        {
+            if (!Directory.Exists(SettingsFolder))
+            {
+                Directory.CreateDirectory(SettingsFolder);
+                AssetDatabase.Refresh();
+            }
+
+            var existing = AssetDatabase.LoadAssetAtPath<CharacterPortraitRigConfigSO>(DefaultPortraitRigConfigPath);
+            if (existing != null)
+            {
+                return existing;
+            }
+
+            var config = ScriptableObject.CreateInstance<CharacterPortraitRigConfigSO>();
+            config.Configure(
+                "res_default_passenger",
+                fallbackSprite,
+                fallbackSprite,
+                fallbackSprite,
+                new[]
+                {
+                    new PortraitExpressionEntry("neutral", "neutral", "neutral", "none", 0f, fallbackSprite, fallbackSprite, null),
+                    new PortraitExpressionEntry("calm", "calm", "calm", "none", 1.5f, fallbackSprite, fallbackSprite, null),
+                    new PortraitExpressionEntry("happy", "happy", "happy", "warmth", 3.5f, fallbackSprite, fallbackSprite, fallbackSprite),
+                    new PortraitExpressionEntry("curious", "curious", "curious", "spark", 6.0f, fallbackSprite, fallbackSprite, fallbackSprite),
+                    new PortraitExpressionEntry("tense", "tense", "tense", "sweat", -3.0f, fallbackSprite, fallbackSprite, fallbackSprite)
+                });
+
+            AssetDatabase.CreateAsset(config, DefaultPortraitRigConfigPath);
+            if (config.SpriteLibraryAsset != null && !AssetDatabase.Contains(config.SpriteLibraryAsset))
+            {
+                AssetDatabase.AddObjectToAsset(config.SpriteLibraryAsset, config);
+            }
+            AssetDatabase.SaveAssets();
+            return config;
         }
 
         private static RoadNode CreateNode(string id, Vector3 position, Transform parent)

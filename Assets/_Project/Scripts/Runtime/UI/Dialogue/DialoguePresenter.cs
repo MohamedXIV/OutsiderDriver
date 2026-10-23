@@ -7,11 +7,13 @@ using OutsiderDriver.Data;
 using OutsiderDriver.Dialogue;
 using OutsiderDriver.Localization;
 using OutsiderDriver.Rides;
+using OutsiderDriver.Visuals.Portraits;
 
 namespace OutsiderDriver.UI.Dialogue
 {
     /// <summary>
-    /// Event-driven MVP Presenter coordinating IDialogueService, IRideLifecycleService, and IDialogueView.
+    /// Event-driven MVP Presenter coordinating IDialogueService, IRideLifecycleService, IDialogueView,
+    /// and CharacterPortraitRig.
     /// Ensures non-blocking conversational rides: reaching the destination displays a gentle arrival
     /// notice without abruptly cutting off an active sentence (GAME_DESIGN §3.B, Decision P-019).
     /// </summary>
@@ -23,6 +25,7 @@ namespace OutsiderDriver.UI.Dialogue
         private readonly IDialogueView _view;
         private readonly IRideLifecycleService _rideService;
         private readonly ILocalizationService _localizationService;
+        private readonly CharacterPortraitRig _portraitRig;
 
         private PassengerDefinitionSO _activePassenger;
 
@@ -31,12 +34,14 @@ namespace OutsiderDriver.UI.Dialogue
             IDialogueService dialogueService,
             IDialogueView view,
             IRideLifecycleService rideService = null,
-            ILocalizationService localizationService = null)
+            ILocalizationService localizationService = null,
+            CharacterPortraitRig portraitRig = null)
         {
             _dialogueService = dialogueService ?? throw new ArgumentNullException(nameof(dialogueService));
             _view = view ?? throw new ArgumentNullException(nameof(view));
             _rideService = rideService;
             _localizationService = localizationService;
+            _portraitRig = portraitRig;
         }
 
         public void Start()
@@ -150,6 +155,12 @@ namespace OutsiderDriver.UI.Dialogue
             _view.SetDialogueText(formattedText, line.IsUnderstoodByPlayer);
             _view.SetContinueButtonVisible(_dialogueService.CanContinue);
 
+            if (_portraitRig != null)
+            {
+                _portraitRig.SetMood(line.Mood);
+                _portraitRig.SetTalking(true);
+            }
+
             if (_dialogueService.CurrentChoices.Count == 0)
             {
                 _view.SetChoices(Array.Empty<DialogueChoice>());
@@ -158,6 +169,11 @@ namespace OutsiderDriver.UI.Dialogue
 
         private void HandleChoicesPresented(IReadOnlyList<DialogueChoice> choices)
         {
+            if (_portraitRig != null)
+            {
+                _portraitRig.SetTalking(false);
+            }
+
             if (_localizationService != null && choices != null && choices.Count > 0)
             {
                 var localizedChoices = new List<DialogueChoice>(choices.Count);
@@ -179,6 +195,12 @@ namespace OutsiderDriver.UI.Dialogue
 
         private void HandleConversationEnded(string residentId)
         {
+            if (_portraitRig != null)
+            {
+                _portraitRig.SetTalking(false);
+                _portraitRig.SetMood("neutral");
+            }
+
             _view.ClearView();
             _view.SetVisible(false);
         }

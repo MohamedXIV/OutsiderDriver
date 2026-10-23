@@ -6,6 +6,7 @@
         "Unity.RenderPipelines.Universal.Runtime",
         "Unity.RenderPipelines.Universal.2D.Runtime",
         "Unity.RenderPipelines.Universal.Editor",
+        "Unity.2D.Animation.Runtime",
         "VContainer",
         "VContainer.Editor",
         "Unity.Cinemachine",

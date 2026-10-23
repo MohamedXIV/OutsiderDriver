@@ -7,6 +7,7 @@ using OutsiderDriver.Player;
 using OutsiderDriver.Rides;
 using OutsiderDriver.UI.Dialogue;
 using OutsiderDriver.Vehicles;
+using OutsiderDriver.Visuals.Portraits;
 using OutsiderDriver.World;
 
 namespace OutsiderDriver.Core
@@ -41,6 +42,12 @@ namespace OutsiderDriver.Core
             if (radioController != null)
             {
                 builder.RegisterComponent(radioController).AsSelf().As<IRadioAudioService>();
+            }
+
+            var portraitRig = FindAnyObjectByType<CharacterPortraitRig>();
+            if (portraitRig != null)
+            {
+                builder.RegisterComponent(portraitRig);
             }
 
             var dialogueView = FindAnyObjectByType<DialogueView>();
