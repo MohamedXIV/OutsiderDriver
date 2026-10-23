@@ -16,6 +16,7 @@ namespace OutsiderDriver.Core
         {
             builder.RegisterComponentInHierarchy<RoadNetwork>();
             builder.RegisterComponentInHierarchy<VehicleController>();
+            builder.RegisterComponentInHierarchy<TrafficDirector>();
         }
     }
 }
