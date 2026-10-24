@@ -7,6 +7,8 @@
 
 ---
 
+> **Hard design constraints confirmed 2026-10-24:** The game remains a **genuine Unity 2D Isometric game**, NOT a 3D world with an isometric camera. Content should be **data-driven wherever practical**, with stable IDs such as `district_01` independent of proposed names, localized labels, lore, descriptions and authored coordinates/bounds. This is a requirement for editable authored content, **not** a mandate to implement a general database, content-management platform or procedural city system. See [World & Content Data Contract](WORLD_CONTENT_DATA_CONTRACT.md). This technical blueprint must not override newer owner decisions or assume old technical examples are locked product choices.
+
 ## 1. Architectural North Star
 
 Outsider Driver is a **freeform, cozy-but-socially-dangerous alien retro-futurist taxi and life sandbox**. Its technical architecture is built around three core tenets:
