@@ -70,6 +70,8 @@ This file is authoritative alongside [GAME_DESIGN.md](GAME_DESIGN.md). It record
 | P-027 | **True 2D ISOMETRIC, not a Unity 3D world** (reaffirmed 2026-10-24) | All world/art production must remain genuinely Unity 2D isometric, even when illustrated objects have visual depth; 3D-looking concept art is not a rendering/asset pipeline decision |
 | P-028 | **Data-driven content/world wherever practical** (owner, 2026-10-24) | Use stable opaque IDs (`district_01`, etc.) independent of editable names, candidate names, descriptions, histories, locations/coordinates, bounds, cultural and visual metadata, referenced authored streets/places; add fields only when used, prefer existing Unity SO + scene workflows. See [World & Content Data Contract](WORLD_CONTENT_DATA_CONTRACT.md) |
 
+| P-029 | **Only alien-language in-world names, even colloquial slang/nicknames** (owner, 2026-10-24) | All diegetic place, institution, landmark, street and building names must come from fictional alien languages and their cultural history. English functional labels are development terms only, never resident-used names. Transliteration for UI readability is allowed; specific alien names are still TBD. |
+
 ## B. Earlier product decisions retained as direction (not an implementation mandate)
 
 These come from the prior design archive. Unless explicitly overridden, they describe the **intended flavor and likely player-facing behaviors**, not a task list to rebuild every corresponding old subsystem.
@@ -147,6 +149,9 @@ These come from the prior design archive. Unless explicitly overridden, they des
 | O-023 | Legal social consequences | Meaningful setting, but surveillance systems, arrests, pursuit, punishments and endings TBD |
 | O-024 | Non-quest special situations | No quests; events can arise from normal life, but no event tree or campaign commitment |
 | O-025 | Asset reference inclusion | User images are present in the conversation, not committed to this repo; agents cannot assume they possess source images |
+
+| O-026 | **Currency name and symbol** | **Unresolved.** `Rin`, `Tal`, `Vara` are three previously discussed proposals, none approved; `cr` / `credits` remain temporary technical accounting labels, not the in-world currency name. |
+| O-027 | **Alien toponyms, group names and cultural naming conventions** | Alien-only names are mandatory (P-029), but actual official/local colloquial/historic names, etymologies, cultural affiliations and spoken languages' real names remain open. Earlier `Trade/Common`, `Local`, `Cant` and `kind:a` etc. are not approved alien names. |
 
 ### How to settle an open question
 
