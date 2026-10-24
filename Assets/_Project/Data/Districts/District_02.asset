@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c2793b6dd21df8543a9708736f8b79ea, type: 3}
+  m_Name: District_02
+  m_EditorClassIdentifier: OutsiderDriver.Runtime::OutsiderDriver.Data.DistrictConfigSO
+  _districtId: district_02
+  _workingName: Central Market Core (Region B)
+  _displayNameKey: world.district_02.name
+  _displayName: Solen-Mar
+  _isNameApproved: 0
+  _alienNameCandidates:
+  - Solen-Mar
+  - Kael-Vora
+  - Vara-Solen
+  _dominantLanguageId: Common
+  _summary: Central commercial and everyday market district connected to the starter neighborhood via primary and secondary avenues.
+  _backgroundLore: Draft lore pending owner review. Bustling curved market halls, local trade stalls, and passenger exchange plazas.
+  _districtBounds:
+    serializedVersion: 2
+    x: -14
+    y: 4
+    width: 22
+    height: 10
+  _ambientTintColor: {r: 0.76, g: 0.92, b: 0.88, a: 1}
+  _defaultRadioStationId: station_amber_wave
+  _targetAmbientVehicles: 6
+  _basePickupFare: 20
+  _creditsPerUnitDistance: 2.5
+  _locationIds:
+  - location_003
+  - location_004
+  _landmarkNodeIds:
+  - node_d02_west_corner
+  - node_d02_market_junction
+  - node_d02_market_plaza
+  - node_d02_east_corner

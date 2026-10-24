@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c2793b6dd21df8543a9708736f8b79ea, type: 3}
+  m_Name: District_01
+  m_EditorClassIdentifier: OutsiderDriver.Runtime::OutsiderDriver.Data.DistrictConfigSO
+  _districtId: district_01
+  _workingName: Outer Home & Workshop Quarter (Region D)
+  _displayNameKey: world.district_01.name
+  _displayName: Vesh-Kora
+  _isNameApproved: 0
+  _alienNameCandidates:
+  - Vesh-Kora
+  - Tarn-Sul
+  - Kora-Miren
+  _dominantLanguageId: Common
+  _summary: Southeastern residential and small-workshop neighborhood where the protagonist's two-story home and garage are located.
+  _backgroundLore: Draft lore pending owner review. Old repair yards and lived-in two-story workshop dwellings along the southern margin.
+  _districtBounds:
+    serializedVersion: 2
+    x: -6
+    y: -2
+    width: 20
+    height: 10
+  _ambientTintColor: {r: 0.95, g: 0.84, b: 0.7, a: 1}
+  _defaultRadioStationId: station_amber_wave
+  _targetAmbientVehicles: 4
+  _basePickupFare: 15
+  _creditsPerUnitDistance: 2
+  _locationIds:
+  - location_001
+  - location_002
+  _landmarkNodeIds:
+  - node_d01_home_bay
+  - node_d01_sw_junction
+  - node_d01_se_corner
+  - node_d01_east_end

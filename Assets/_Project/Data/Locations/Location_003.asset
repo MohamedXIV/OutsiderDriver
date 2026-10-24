@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3ed5ea659271b274397097033afa0e18, type: 3}
+  m_Name: Location_003
+  m_EditorClassIdentifier: OutsiderDriver.Runtime::OutsiderDriver.Data.WorldLocationSO
+  _locationId: location_003
+  _districtId: district_02
+  _category: 3
+  _workingName: Central Market Hall
+  _displayNameKey: world.location_003.name
+  _displayName: Solen-Vara Rotunda
+  _isNameApproved: 0
+  _alienNameCandidates:
+  - Solen-Vara
+  - Miren-Kael
+  _summary: Primary commercial destination with rounded retro-futurist arches, market stalls, and passenger dropoff plaza.
+  _floorCount: 2
+  _connectedRoadNodeId: node_d02_market_plaza

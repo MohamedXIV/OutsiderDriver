@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 532152dc13edaec4192bf7623df9eb55, type: 3}
+  m_Name: CarModel_PlayerTaxi
+  m_EditorClassIdentifier: OutsiderDriver.Runtime::OutsiderDriver.Data.CarModelSO
+  _modelId: car_player_taxi
+  _displayName: Old Retro-Futurist Ground Cab
+  _maxSpeed: 5.5
+  _acceleration: 4.8
+  _deceleration: 6.8
+  _forwardSensorDistance: 1.8
+  _passengerCapacity: 3
+  _chassisSprite: {fileID: 0}
+  _bodyTint: {r: 1, g: 0.78, b: 0.28, a: 1}

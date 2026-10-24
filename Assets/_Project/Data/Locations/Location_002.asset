@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3ed5ea659271b274397097033afa0e18, type: 3}
+  m_Name: Location_002
+  m_EditorClassIdentifier: OutsiderDriver.Runtime::OutsiderDriver.Data.WorldLocationSO
+  _locationId: location_002
+  _districtId: district_01
+  _category: 1
+  _workingName: Neighborhood Repair & Supply Workshop
+  _displayNameKey: world.location_002.name
+  _displayName: Kora-Vesh Hall
+  _isNameApproved: 0
+  _alienNameCandidates:
+  - Kora-Vesh
+  - Sul-Tarn
+  _summary: Local neighborhood fabrication and ground-vehicle upkeep workshop on the southern street.
+  _floorCount: 1
+  _connectedRoadNodeId: node_d01_se_corner
