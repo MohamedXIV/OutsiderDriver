@@ -85,6 +85,7 @@ namespace OutsiderDriver.Tests.EditMode
             originalService.HasRadioModule = false;
             originalService.InstallLanguageModule("Krellish");
             originalService.RecordResidentInteraction("res_sol", affinityDelta: 30, trustDelta: 40, suspicionDelta: 10, currentTotalMinutes: 5000);
+            originalService.UpdateWorldPosition(new UnityEngine.Vector2(-4.5f, 2.5f), "OnFoot", "NorthWest");
 
             SaveStateData exported = originalService.ExportSaveState();
             string json = exported.ToJson(prettyPrint: false);
@@ -107,6 +108,10 @@ namespace OutsiderDriver.Tests.EditMode
             Assert.AreEqual(40, restoredResident.PersonalTrust);
             Assert.AreEqual(10, restoredResident.SuspicionOfHumanity);
             Assert.AreEqual(5000, restoredResident.LastEncounterTotalMinutes);
+            Assert.AreEqual(-4.5f, restoredService.WorldState.PositionX);
+            Assert.AreEqual(2.5f, restoredService.WorldState.PositionY);
+            Assert.AreEqual("OnFoot", restoredService.WorldState.DriverMode);
+            Assert.AreEqual("NorthWest", restoredService.WorldState.Facing);
         }
     }
 }

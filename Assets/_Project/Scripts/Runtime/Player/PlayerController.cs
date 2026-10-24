@@ -3,6 +3,8 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using Unity.Cinemachine;
 using VContainer;
+using OutsiderDriver.Core.Persistence;
+using OutsiderDriver.Core.State;
 using OutsiderDriver.Core.Time;
 using OutsiderDriver.Navigation;
 using OutsiderDriver.Vehicles;
@@ -42,6 +44,8 @@ namespace OutsiderDriver.Player
         [SerializeField] private DriverMode _initialMode = DriverMode.InTaxi;
 
         private ITimeService _timeService;
+        private ISaveService _saveService;
+        private IPlayerStateService _playerStateService;
         private DriverMode _currentMode = DriverMode.InTaxi;
         private IsometricDirection _currentFacing = IsometricDirection.SouthEast;
         private WalkableZone _currentWalkableZone;
@@ -52,6 +56,8 @@ namespace OutsiderDriver.Player
         public WalkableZone CurrentWalkableZone => _currentWalkableZone;
         public NeighborhoodInteractable NearestInteractable => _nearestInteractable;
         public Vector2 Position2D => new Vector2(transform.position.x, transform.position.y);
+        public ISaveService SaveService => _saveService;
+        public IPlayerStateService PlayerStateService => _playerStateService;
 
         public float WalkSpeed
         {
@@ -80,10 +86,12 @@ namespace OutsiderDriver.Player
 
         [Inject]
         public void Construct(
-            HomeNeighborhoodLayout neighborhoodLayout,
+            HomeNeighborhoodLayout neighborhoodLayout = null,
             VehicleController playerTaxi = null,
             TrafficDirector trafficDirector = null,
-            ITimeService timeService = null)
+            ITimeService timeService = null,
+            ISaveService saveService = null,
+            IPlayerStateService playerStateService = null)
         {
             if (neighborhoodLayout != null)
             {
@@ -103,6 +111,39 @@ namespace OutsiderDriver.Player
             if (timeService != null)
             {
                 _timeService = timeService;
+            }
+
+            if (saveService != null)
+            {
+                SetSaveService(saveService);
+            }
+
+            if (playerStateService != null)
+            {
+                _playerStateService = playerStateService;
+            }
+        }
+
+        public void SetSaveService(ISaveService saveService)
+        {
+            if (_saveService != null)
+            {
+                _saveService.OnLoadCompleted -= HandleSaveLoaded;
+            }
+
+            _saveService = saveService;
+
+            if (_saveService != null)
+            {
+                _saveService.OnLoadCompleted += HandleSaveLoaded;
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (_saveService != null)
+            {
+                _saveService.OnLoadCompleted -= HandleSaveLoaded;
             }
         }
 
@@ -144,6 +185,7 @@ namespace OutsiderDriver.Player
 
             ApplyCameraPrioritiesAndVisibility();
             RefreshCurrentZoneAndInteractable();
+            SyncWorldStateToPlayerState();
         }
 
         private void Update()
@@ -189,6 +231,7 @@ namespace OutsiderDriver.Player
 
             if (changed)
             {
+                SyncWorldStateToPlayerState();
                 OnModeChanged?.Invoke(_currentMode);
             }
         }
@@ -267,6 +310,7 @@ namespace OutsiderDriver.Player
 
             ApplyCameraPrioritiesAndVisibility();
             RefreshCurrentZoneAndInteractable();
+            SyncWorldStateToPlayerState();
             OnModeChanged?.Invoke(_currentMode);
             return true;
         }
@@ -296,6 +340,7 @@ namespace OutsiderDriver.Player
             }
 
             ApplyCameraPrioritiesAndVisibility();
+            SyncWorldStateToPlayerState();
             OnModeChanged?.Invoke(_currentMode);
             return true;
         }
@@ -373,10 +418,71 @@ namespace OutsiderDriver.Player
 
         private void RestAtHomeBed()
         {
-            if (_timeService == null) return;
+            if (_timeService != null)
+            {
+                float realSecondsToAdvance = _restDurationMinutes * _timeService.RealSecondsPerInGameMinute;
+                _timeService.AdvanceTime(realSecondsToAdvance);
+            }
 
-            float realSecondsToAdvance = _restDurationMinutes * _timeService.RealSecondsPerInGameMinute;
-            _timeService.AdvanceTime(realSecondsToAdvance);
+            SyncWorldStateToPlayerState();
+
+            _saveService?.Save();
+        }
+
+        /// <summary>
+        /// Synchronizes current player position, mode, and facing to the IPlayerStateService.
+        /// </summary>
+        public void SyncWorldStateToPlayerState()
+        {
+            if (_playerStateService != null)
+            {
+                Vector2 currentPos = _currentMode == DriverMode.InTaxi && _playerTaxi != null
+                    ? new Vector2(_playerTaxi.transform.position.x, _playerTaxi.transform.position.y)
+                    : Position2D;
+
+                _playerStateService.UpdateWorldPosition(currentPos, _currentMode.ToString(), _currentFacing.ToString());
+            }
+        }
+
+        private void HandleSaveLoaded(SaveStateData loadedData)
+        {
+            if (loadedData != null && loadedData.World != null)
+            {
+                RestoreWorldState(loadedData.World);
+            }
+        }
+
+        /// <summary>
+        /// Restores driver mode, position, and facing from persistent player world state.
+        /// </summary>
+        public void RestoreWorldState(PlayerWorldStateData worldState)
+        {
+            if (worldState == null) return;
+
+            DriverMode targetMode = string.Equals(worldState.DriverMode, nameof(DriverMode.OnFoot), StringComparison.OrdinalIgnoreCase)
+                ? DriverMode.OnFoot
+                : DriverMode.InTaxi;
+
+            Vector2 targetPos = new Vector2(worldState.PositionX, worldState.PositionY);
+
+            if (targetMode == DriverMode.OnFoot)
+            {
+                SetModeImmediate(DriverMode.OnFoot, targetPos);
+            }
+            else
+            {
+                if (_playerTaxi != null && targetPos.sqrMagnitude > 0.0001f)
+                {
+                    _playerTaxi.transform.position = new Vector3(targetPos.x, targetPos.y, 0f);
+                }
+                SetModeImmediate(DriverMode.InTaxi);
+            }
+
+            if (Enum.TryParse<IsometricDirection>(worldState.Facing, true, out var facing))
+            {
+                _currentFacing = facing;
+                OnFacingChanged?.Invoke(_currentFacing);
+            }
         }
 
         private Vector2 ResolveValidTaxiExitPosition(out WalkableZone validZone)

@@ -1,6 +1,9 @@
+using System.IO;
 using NUnit.Framework;
 using UnityEngine;
 using Unity.Cinemachine;
+using OutsiderDriver.Core.Persistence;
+using OutsiderDriver.Core.State;
 using OutsiderDriver.Core.Time;
 using OutsiderDriver.Navigation;
 using OutsiderDriver.Player;
@@ -12,6 +15,7 @@ namespace OutsiderDriver.Tests.EditMode
     [TestFixture]
     public class PlayerControllerTests
     {
+        private string _testSaveDir;
         private GameObject _rootGo;
         private HomeNeighborhoodLayout _layout;
         private VehicleController _taxi;
@@ -21,10 +25,15 @@ namespace OutsiderDriver.Tests.EditMode
         private CinemachineCamera _taxiCamera;
         private CinemachineCamera _onFootCamera;
         private TimeService _timeService;
+        private PlayerStateService _playerState;
+        private SaveService _saveService;
 
         [SetUp]
         public void SetUp()
         {
+            _testSaveDir = Path.Combine(Path.GetTempPath(), "OutsiderDriver_PlayerTests_" + System.Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(_testSaveDir);
+
             _rootGo = new GameObject("PlayerControllerTestRoot");
 
             // 1. Setup HomeNeighborhoodLayout with HomeInterior and NeighborhoodSidewalk zones
@@ -97,7 +106,10 @@ namespace OutsiderDriver.Tests.EditMode
             _driverVisuals = new GameObject("Visuals");
             _driverVisuals.transform.SetParent(driverGo.transform, false);
 
-            _player.Construct(_layout, _taxi, _trafficDirector, _timeService);
+            _playerState = new PlayerStateService(_timeService);
+            _saveService = new SaveService(_playerState, _testSaveDir);
+
+            _player.Construct(_layout, _taxi, _trafficDirector, _timeService, _saveService, _playerState);
             _player.AssignVisualsRoot(_driverVisuals);
             _player.AssignCameras(_taxiCamera, _onFootCamera);
             _player.SetModeImmediate(DriverMode.InTaxi);
@@ -110,6 +122,18 @@ namespace OutsiderDriver.Tests.EditMode
             if (_rootGo != null)
             {
                 Object.DestroyImmediate(_rootGo);
+            }
+
+            if (Directory.Exists(_testSaveDir))
+            {
+                try
+                {
+                    Directory.Delete(_testSaveDir, recursive: true);
+                }
+                catch
+                {
+                    // Ignore temp directory deletion cleanup issues on Windows
+                }
             }
         }
 
@@ -199,6 +223,43 @@ namespace OutsiderDriver.Tests.EditMode
 
             bool rested = _player.TryInteractWithNearest();
             Assert.IsTrue(rested);
+            Assert.AreEqual(14, _timeService.CurrentTime.Hour);
+            Assert.IsTrue(_saveService.HasSaveFile());
+        }
+
+        [Test]
+        public void RestAtHomeBed_AutoSavesStateToDisk_AndLoadRestoresPlayerModeAndPosition()
+        {
+            _playerState.AddCredits(400);
+
+            // Move player to bed inside home interior
+            _player.SetModeImmediate(DriverMode.OnFoot, new Vector2(-5.5f, 3.2f));
+            Assert.AreEqual(InteractableKind.HomeBed, _player.NearestInteractable.Kind);
+
+            // Rest at home bed -> should advance time and auto-save state
+            bool rested = _player.TryInteractWithNearest();
+            Assert.IsTrue(rested);
+            Assert.IsTrue(_saveService.HasSaveFile());
+
+            // Modify runtime state: put player in taxi and move far away
+            _taxi.transform.position = new Vector3(20f, 15f, 0f);
+            _player.SetModeImmediate(DriverMode.InTaxi);
+            _playerState.TrySpendCredits(300);
+            Assert.AreEqual(DriverMode.InTaxi, _player.CurrentMode);
+            Assert.AreEqual(200, _playerState.Credits);
+
+            // Now load save from disk
+            bool loaded = _saveService.Load();
+            Assert.IsTrue(loaded);
+
+            // Assert world state and profile restored:
+            Assert.AreEqual(DriverMode.OnFoot, _player.CurrentMode);
+            Assert.AreEqual(-5.5f, _player.Position2D.x, 0.001f);
+            Assert.AreEqual(3.2f, _player.Position2D.y, 0.001f);
+            Assert.IsTrue(_driverVisuals.activeSelf);
+            Assert.AreEqual(PlayerController.ActiveCameraPriority, _onFootCamera.Priority.Value);
+            Assert.AreEqual(PlayerController.InactiveCameraPriority, _taxiCamera.Priority.Value);
+            Assert.AreEqual(500, _playerState.Credits); // 100 base + 400
             Assert.AreEqual(14, _timeService.CurrentTime.Hour);
         }
     }

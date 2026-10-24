@@ -15,6 +15,7 @@ namespace OutsiderDriver.Core.State
         public int Hour = 18;
         public int Minute = 0;
         public PlayerProfileData Profile = new PlayerProfileData();
+        public PlayerWorldStateData World = new PlayerWorldStateData();
 
         public WorldTime GetWorldTime()
         {
@@ -51,6 +52,7 @@ namespace OutsiderDriver.Core.State
                 loaded.Profile ??= new PlayerProfileData();
                 loaded.Profile.InstalledLanguageIds ??= new System.Collections.Generic.List<string>();
                 loaded.Profile.KnownResidents ??= new System.Collections.Generic.List<ResidentRelationshipData>();
+                loaded.World ??= new PlayerWorldStateData();
                 return loaded;
             }
             catch

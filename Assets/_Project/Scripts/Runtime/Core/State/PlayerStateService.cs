@@ -13,6 +13,7 @@ namespace OutsiderDriver.Core.State
     {
         private readonly ITimeService _timeService;
         private PlayerProfileData _profile;
+        private PlayerWorldStateData _worldState = new PlayerWorldStateData();
         private readonly Dictionary<string, ResidentRelationshipData> _residentLookup = new Dictionary<string, ResidentRelationshipData>(StringComparer.OrdinalIgnoreCase);
 
         public int Credits => _profile.Credits;
@@ -31,6 +32,7 @@ namespace OutsiderDriver.Core.State
         }
 
         public IReadOnlyList<string> InstalledLanguageIds => _profile.InstalledLanguageIds;
+        public PlayerWorldStateData WorldState => _worldState;
 
         public event Action<int> OnCreditsChanged;
         public event Action<int> OnCoverIntegrityChanged;
@@ -132,12 +134,27 @@ namespace OutsiderDriver.Core.State
             OnResidentUpdated?.Invoke(data);
         }
 
+        public void UpdateWorldPosition(Vector2 position, string driverMode, string facing = null)
+        {
+            _worldState.PositionX = position.x;
+            _worldState.PositionY = position.y;
+            if (!string.IsNullOrWhiteSpace(driverMode))
+            {
+                _worldState.DriverMode = driverMode;
+            }
+            if (!string.IsNullOrWhiteSpace(facing))
+            {
+                _worldState.Facing = facing;
+            }
+        }
+
         public SaveStateData ExportSaveState()
         {
             var save = new SaveStateData
             {
                 Version = 1,
-                Profile = JsonUtility.FromJson<PlayerProfileData>(JsonUtility.ToJson(_profile))
+                Profile = JsonUtility.FromJson<PlayerProfileData>(JsonUtility.ToJson(_profile)),
+                World = JsonUtility.FromJson<PlayerWorldStateData>(JsonUtility.ToJson(_worldState))
             };
 
             if (_timeService != null)
@@ -159,6 +176,10 @@ namespace OutsiderDriver.Core.State
             _profile.InstalledLanguageIds ??= new List<string>();
             _profile.KnownResidents ??= new List<ResidentRelationshipData>();
             RebuildResidentLookup();
+
+            _worldState = saveState.World != null
+                ? JsonUtility.FromJson<PlayerWorldStateData>(JsonUtility.ToJson(saveState.World))
+                : new PlayerWorldStateData();
 
             if (_timeService != null)
             {

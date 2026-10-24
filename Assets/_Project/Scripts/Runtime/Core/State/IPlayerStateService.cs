@@ -14,6 +14,7 @@ namespace OutsiderDriver.Core.State
         bool HasGpsModule { get; set; }
         bool HasRadioModule { get; set; }
         IReadOnlyList<string> InstalledLanguageIds { get; }
+        PlayerWorldStateData WorldState { get; }
 
         event Action<int> OnCreditsChanged;
         event Action<int> OnCoverIntegrityChanged;
@@ -28,6 +29,7 @@ namespace OutsiderDriver.Core.State
 
         ResidentRelationshipData GetOrAddResident(string residentId);
         void RecordResidentInteraction(string residentId, int affinityDelta, int trustDelta, int suspicionDelta, int currentTotalMinutes);
+        void UpdateWorldPosition(UnityEngine.Vector2 position, string driverMode, string facing = null);
 
         SaveStateData ExportSaveState();
         void LoadSaveState(SaveStateData saveState);
