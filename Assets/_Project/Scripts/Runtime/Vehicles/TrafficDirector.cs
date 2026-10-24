@@ -22,21 +22,21 @@ namespace OutsiderDriver.Vehicles
         [Tooltip("Optional prefab for ambient vehicles. If null, a lightweight runtime vehicle object is created.")]
         [SerializeField] private VehicleController _ambientVehiclePrefab;
 
-        [Header("Bubble & Pool Settings")]
+        [Header("Bubble & Pool Settings (metres)")]
         [Tooltip("Maximum number of active ambient vehicles inside the bubble at one time.")]
-        [SerializeField] private int _maxActiveVehicles = 5;
+        [SerializeField] private int _maxActiveVehicles = 6;
         [Tooltip("Inner radius around bubble center; ambient cars will not spawn closer than this.")]
-        [SerializeField] private float _minSpawnRadius = 6f;
+        [SerializeField] private float _minSpawnRadius = 25f;
         [Tooltip("Outer radius around bubble center within which new ambient cars can spawn.")]
-        [SerializeField] private float _maxSpawnRadius = 18f;
+        [SerializeField] private float _maxSpawnRadius = 65f;
         [Tooltip("Radius beyond which active ambient cars are recycled back into the pool.")]
-        [SerializeField] private float _despawnRadius = 24f;
+        [SerializeField] private float _despawnRadius = 90f;
         [Tooltip("Minimum clearance distance from any existing active vehicle when choosing a spawn node.")]
-        [SerializeField] private float _spawnClearanceRadius = 2.5f;
+        [SerializeField] private float _spawnClearanceRadius = 8f;
         [Tooltip("Interval in seconds between bubble spawn/despawn evaluations.")]
         [SerializeField] private float _evaluationInterval = 0.5f;
-        [Tooltip("Cruise speed assigned to spawned ambient vehicles.")]
-        [SerializeField] private float _ambientCruiseSpeed = 3.8f;
+        [Tooltip("Cruise speed in metres per second assigned to spawned ambient vehicles.")]
+        [SerializeField] private float _ambientCruiseSpeed = 7f;
 
         private ObjectPool<VehicleController> _vehiclePool;
         private readonly List<VehicleController> _activeAmbientVehicles = new List<VehicleController>();
@@ -139,6 +139,8 @@ namespace OutsiderDriver.Vehicles
             }
 
             Vector3 center = GetBubbleCenterPosition();
+            var projection = _roadNetwork.GroundProjection;
+            Vector2 centerGround = projection.WorldToGround(center);
             float despawnRadiusSqr = _despawnRadius * _despawnRadius;
 
             // 1. Recycle ambient vehicles that left the despawn bubble or keep idle ones moving
@@ -151,8 +153,7 @@ namespace OutsiderDriver.Vehicles
                     continue;
                 }
 
-                Vector3 offset = vehicle.transform.position - center;
-                offset.z = 0f;
+                Vector2 offset = projection.WorldToGround(vehicle.transform.position) - centerGround;
                 if (offset.sqrMagnitude > despawnRadiusSqr)
                 {
                     RecycleVehicle(vehicle);
@@ -290,6 +291,8 @@ namespace OutsiderDriver.Vehicles
         private RoadNode FindValidSpawnNode(Vector3 center)
         {
             var allNodes = _roadNetwork.AllNodes;
+            var projection = _roadNetwork.GroundProjection;
+            Vector2 centerGround = projection.WorldToGround(center);
             float minSqr = _minSpawnRadius * _minSpawnRadius;
             float maxSqr = _maxSpawnRadius * _maxSpawnRadius;
             float clearanceSqr = _spawnClearanceRadius * _spawnClearanceRadius;
@@ -300,12 +303,11 @@ namespace OutsiderDriver.Vehicles
                 if (candidate == null || candidate.ConnectedNodes.Count == 0) continue;
                 if (candidate.OccupyingVehicle != null) continue;
 
-                Vector3 offset = candidate.Position - center;
-                offset.z = 0f;
-                float distSqr = offset.sqrMagnitude;
+                Vector2 candidateGround = projection.WorldToGround(candidate.Position);
+                float distSqr = (candidateGround - centerGround).sqrMagnitude;
                 if (distSqr < minSqr || distSqr > maxSqr) continue;
 
-                if (IsPositionClearOfVehicles(candidate.Position, clearanceSqr))
+                if (IsGroundPositionClearOfVehicles(candidateGround, clearanceSqr))
                 {
                     return candidate;
                 }
@@ -314,16 +316,16 @@ namespace OutsiderDriver.Vehicles
             return null;
         }
 
-        private static bool IsPositionClearOfVehicles(Vector3 position, float clearanceSqr)
+        private bool IsGroundPositionClearOfVehicles(Vector2 groundPosition, float clearanceSqr)
         {
+            var projection = _roadNetwork.GroundProjection;
             var activeVehicles = VehicleController.AllActiveVehicles;
             for (int i = 0; i < activeVehicles.Count; i++)
             {
                 var v = activeVehicles[i];
                 if (v == null || !v.gameObject.activeInHierarchy) continue;
 
-                Vector3 diff = v.transform.position - position;
-                diff.z = 0f;
+                Vector2 diff = projection.WorldToGround(v.transform.position) - groundPosition;
                 if (diff.sqrMagnitude < clearanceSqr)
                 {
                     return false;

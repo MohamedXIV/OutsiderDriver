@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 6509421230542473461}
   - component: {fileID: 5400098146001362773}
-  - component: {fileID: 5364985290340479337}
   m_Layer: 0
   m_Name: RoadPiece_TJunction
   m_TagString: Untagged
@@ -93,23 +92,3 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
   m_BlendShapeWeights: []
---- !u!114 &5364985290340479337
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3121359520326712601}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0c9d09184fd6c1e41b08e50c3cf398fc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: OutsiderDriver.Runtime::OutsiderDriver.Navigation.RoadNode
-  _nodeId: roadpiece_tjunction
-  _districtId: district_01
-  _pieceType: 2
-  _elevationLevel: 0
-  _isElevationRamp: 0
-  _priority: 0
-  _intersectionClearanceRadius: 1.25
-  _connectedNodes: []

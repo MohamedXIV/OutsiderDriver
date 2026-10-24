@@ -43,8 +43,11 @@ namespace OutsiderDriver.Navigation
         [Tooltip("Right-of-way rule when vehicles approach this node.")]
         [SerializeField] private RoadNodePriority _priority = RoadNodePriority.MainArtery;
 
-        [Tooltip("Radius within which approaching vehicles check or reserve this intersection.")]
-        [SerializeField] private float _intersectionClearanceRadius = 1.25f;
+        [Tooltip("Radius in metres within which approaching vehicles check or reserve this intersection.")]
+        [SerializeField] private float _intersectionClearanceRadius = 6f;
+
+        [Tooltip("Lateral offset in metres from the authored centerline, used to drive on the correct side of the street. Zero keeps the vehicle on the centerline.")]
+        [SerializeField] private float _laneOffsetMeters = 0f;
 
         [Tooltip("Connected outgoing nodes reachable from this node.")]
         [SerializeField] private List<RoadNode> _connectedNodes = new List<RoadNode>();
@@ -94,6 +97,12 @@ namespace OutsiderDriver.Navigation
             set => _intersectionClearanceRadius = Mathf.Max(0.1f, value);
         }
 
+        public float LaneOffsetMeters
+        {
+            get => _laneOffsetMeters;
+            set => _laneOffsetMeters = Mathf.Max(0f, value);
+        }
+
         public IReadOnlyList<RoadNode> ConnectedNodes => _connectedNodes;
         public bool IsIntersection => _connectedNodes.Count > 2 || _pieceType == RoadPieceType.TJunction || _pieceType == RoadPieceType.FourWayIntersection || _priority == RoadNodePriority.YieldIntersection;
         public object OccupyingVehicle => _occupyingVehicle;
@@ -104,7 +113,8 @@ namespace OutsiderDriver.Navigation
             RoadPieceType pieceType = RoadPieceType.Straight,
             string districtId = "district_01",
             int elevationLevel = 0,
-            bool isElevationRamp = false)
+            bool isElevationRamp = false,
+            float laneOffsetMeters = 0f)
         {
             _nodeId = nodeId;
             _priority = priority;
@@ -112,6 +122,7 @@ namespace OutsiderDriver.Navigation
             _districtId = districtId;
             _elevationLevel = elevationLevel;
             _isElevationRamp = isElevationRamp;
+            _laneOffsetMeters = Mathf.Max(0f, laneOffsetMeters);
         }
 
         /// <summary>

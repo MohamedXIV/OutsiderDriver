@@ -107,6 +107,7 @@ A district record should **be able to represent** the following categories as de
 
 ### Coordinates, area boundaries and streets
 
+- Physical scale, authored street classes and lane/navigation rules are defined in [City Scale & Street Standards](CITY_SCALE_AND_STREET_STANDARDS.md) (P-031–P-033). Reusable visual road pieces must not embed production `RoadNode` IDs.
 - Locations should have **real authored spatial meaning**, not exist only as labels and unexplained five-node teleport graphs.
 - A Unity `Transform`, serialized coordinate, map-space anchor or authored footprint is appropriate depending on the record and how the level is edited. Do **not** duplicate authoritative coordinates in multiple places where they will drift.
 - Distinguish **position** (anchor/representative point), **shape** (actual district boundary or lot footprint when needed) and **connectivity** (actual accessible roads/ramps). A point position does **not** define district limits or guarantee route access.

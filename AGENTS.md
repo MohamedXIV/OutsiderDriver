@@ -11,10 +11,11 @@
 1. [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md) — canonical full game design and boundaries.
 2. [docs/DECISIONS_AND_OPEN_QUESTIONS.md](docs/DECISIONS_AND_OPEN_QUESTIONS.md) — exactly what's approved, historical, suggested, unresolved or rejected.
 3. [docs/WORLD_CONTENT_DATA_CONTRACT.md](docs/WORLD_CONTENT_DATA_CONTRACT.md) — mandatory 2D isometric and data-driven world/content requirements.
-4. [docs/SYSTEMS_ARCHITECTURE.md](docs/SYSTEMS_ARCHITECTURE.md) — technical blueprint: VContainer DI, TimeService, GTA traffic bubble, Ink dialogue, UI Toolkit MVP.
-5. [docs/VISUAL_DIRECTION.md](docs/VISUAL_DIRECTION.md) — art intent, user image-reference descriptions, non-decisions.
-6. [docs/ENGINEERING_PRINCIPLES.md](docs/ENGINEERING_PRINCIPLES.md) — clean Unity approach, production rules and performance discipline.
-7. This repository's **actual current project and source**, open issues and PRs, before changing anything.
+4. [docs/CITY_SCALE_AND_STREET_STANDARDS.md](docs/CITY_SCALE_AND_STREET_STANDARDS.md) — approved physical scale, street classes, lane-aware navigation and road-authoring rules (P-031–P-033).
+5. [docs/SYSTEMS_ARCHITECTURE.md](docs/SYSTEMS_ARCHITECTURE.md) — technical blueprint: VContainer DI, TimeService, GTA traffic bubble, Ink dialogue, UI Toolkit MVP.
+6. [docs/VISUAL_DIRECTION.md](docs/VISUAL_DIRECTION.md) — art intent, user image-reference descriptions, non-decisions.
+7. [docs/ENGINEERING_PRINCIPLES.md](docs/ENGINEERING_PRINCIPLES.md) — clean Unity approach, production rules and performance discipline.
+8. This repository's **actual current project and source**, open issues and PRs, before changing anything.
 
 If your task touches only one narrow topic, read its relevant sections fully and cross-check the decision status. Do not use this short entry file as a replacement for the full detailed docs.
 

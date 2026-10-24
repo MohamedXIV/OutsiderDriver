@@ -14,10 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: OutsiderDriver.Runtime::OutsiderDriver.Data.CarModelSO
   _modelId: car_ambient_sedan
   _displayName: Local Ground Sedan
-  _maxSpeed: 3.8
-  _acceleration: 3.6
-  _deceleration: 5.5
-  _forwardSensorDistance: 1.8
+  _maxSpeed: 7.5
+  _acceleration: 3
+  _deceleration: 4.5
+  _forwardSensorDistance: 8
   _passengerCapacity: 2
   _chassisSprite: {fileID: 0}
   _bodyTint: {r: 1, g: 0.78, b: 0.28, a: 1}

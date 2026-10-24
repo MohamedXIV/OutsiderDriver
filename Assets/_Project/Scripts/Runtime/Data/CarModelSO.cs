@@ -13,15 +13,15 @@ namespace OutsiderDriver.Data
         [SerializeField] private string _modelId = "car_taxi_mk1";
         [SerializeField] private string _displayName = "Vesperia Civic Cab";
 
-        [Header("Kinematic Movement Specs (Decision P-024)")]
+        [Header("Kinematic Movement Specs (Decision P-024, metres / seconds)")]
         [Min(0.5f)]
-        [SerializeField] private float _maxSpeed = 5.0f;
+        [SerializeField] private float _maxSpeed = 9.0f;
         [Min(0.5f)]
-        [SerializeField] private float _acceleration = 4.0f;
+        [SerializeField] private float _acceleration = 3.5f;
         [Min(0.5f)]
-        [SerializeField] private float _deceleration = 6.0f;
+        [SerializeField] private float _deceleration = 5.0f;
         [Min(0.5f)]
-        [SerializeField] private float _forwardSensorDistance = 1.8f;
+        [SerializeField] private float _forwardSensorDistance = 9.0f;
 
         [Header("Capacity & Visuals")]
         [Range(1, 6)]
@@ -45,7 +45,7 @@ namespace OutsiderDriver.Data
             float maxSpeed,
             float acceleration,
             float deceleration,
-            float forwardSensorDistance = 1.8f,
+            float forwardSensorDistance = 9.0f,
             int passengerCapacity = 2)
         {
             _modelId = modelId;

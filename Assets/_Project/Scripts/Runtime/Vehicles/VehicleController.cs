@@ -20,21 +20,24 @@ namespace OutsiderDriver.Vehicles
 
         [Header("Road & Routing")]
         [SerializeField] private RoadNetwork _roadNetwork;
-        [SerializeField] private float _waypointArrivalRadius = 0.25f;
+        [Tooltip("Arrival tolerance in metres at a node with no lane offset. Lane-offset nodes use the offset plus a small margin so passing beside the node registers.")]
+        [SerializeField] private float _waypointArrivalRadius = 0.6f;
 
-        [Header("Movement Dynamics & Data Model")]
+        [Header("Movement Dynamics & Data Model (metres / seconds)")]
         [SerializeField] private CarModelSO _carModel;
-        [SerializeField] private float _maxSpeed = 5f;
-        [SerializeField] private float _acceleration = 4f;
-        [SerializeField] private float _deceleration = 6f;
+        [SerializeField] private float _maxSpeed = 9f;
+        [SerializeField] private float _acceleration = 3.5f;
+        [SerializeField] private float _deceleration = 5f;
 
-        [Header("Traffic Sensors & Yielding")]
+        [Header("Traffic Sensors & Yielding (metres)")]
         [Tooltip("Forward distance to check for another vehicle ahead in the same lane.")]
-        [SerializeField] private float _forwardSensorDistance = 1.8f;
+        [SerializeField] private float _forwardSensorDistance = 9f;
         [Tooltip("Directional cone angle (degrees) for detecting vehicles directly ahead.")]
         [SerializeField] private float _forwardSensorAngle = 35f;
+        [Tooltip("Half-width of the forward sensor corridor. Vehicles in adjacent lanes are ignored.")]
+        [SerializeField] private float _forwardSensorHalfWidth = 1.8f;
         [Tooltip("Distance from a YieldIntersection node at which the vehicle checks right-of-way.")]
-        [SerializeField] private float _intersectionYieldDistance = 1.4f;
+        [SerializeField] private float _intersectionYieldDistance = 9f;
 
         [Header("Visuals")]
         [SerializeField] private Transform _visualsRoot;
@@ -45,8 +48,11 @@ namespace OutsiderDriver.Vehicles
         private bool _isPaused = false;
         private bool _isYielding = false;
         private Vector3 _forwardDirection = new Vector3(1f, 0.5f, 0f).normalized;
+        private Vector2 _forwardGroundDirection = Vector2.right;
         private IsometricDirection _currentFacing = IsometricDirection.NorthEast;
         private RoadNode _reservedNode;
+        private int _laneMergePathIndex = -1;
+        private bool _laneMergeComplete;
 
         public static IReadOnlyList<VehicleController> AllActiveVehicles => ActiveVehicles;
         public static void RegisterActiveVehicle(VehicleController vehicle)
@@ -65,12 +71,35 @@ namespace OutsiderDriver.Vehicles
             get => _maxSpeed;
             set => _maxSpeed = Mathf.Max(0.1f, value);
         }
-        public float Acceleration => _acceleration;
-        public float Deceleration => _deceleration;
+        public float Acceleration
+        {
+            get => _acceleration;
+            set => _acceleration = Mathf.Max(0.1f, value);
+        }
+        public float Deceleration
+        {
+            get => _deceleration;
+            set => _deceleration = Mathf.Max(0.1f, value);
+        }
         public float ForwardSensorDistance
         {
             get => _forwardSensorDistance;
             set => _forwardSensorDistance = Mathf.Max(0.1f, value);
+        }
+        public float ForwardSensorHalfWidth
+        {
+            get => _forwardSensorHalfWidth;
+            set => _forwardSensorHalfWidth = Mathf.Max(0.1f, value);
+        }
+        public float WaypointArrivalRadius
+        {
+            get => _waypointArrivalRadius;
+            set => _waypointArrivalRadius = Mathf.Max(0.05f, value);
+        }
+        public float IntersectionYieldDistance
+        {
+            get => _intersectionYieldDistance;
+            set => _intersectionYieldDistance = Mathf.Max(0.1f, value);
         }
         public bool IsMoving => _currentSpeed > 0.05f;
         public bool IsYielding => _isYielding;
@@ -79,6 +108,7 @@ namespace OutsiderDriver.Vehicles
         public RoadNode CurrentTargetNode => HasActiveRoute ? _activePath[_currentPathIndex] : null;
         public RoadNode DestinationNode => _activePath.Count > 0 ? _activePath[_activePath.Count - 1] : null;
         public Vector3 ForwardDirection => _forwardDirection;
+        public Vector2 ForwardGroundDirection => _forwardGroundDirection;
         public IsometricDirection CurrentFacing => _currentFacing;
 
         public event Action<RoadNode> OnDestinationReached;
@@ -253,6 +283,8 @@ namespace OutsiderDriver.Vehicles
             _currentPathIndex = 0;
             _isPaused = false;
             _isYielding = false;
+            _laneMergePathIndex = -1;
+            _laneMergeComplete = false;
 
             OnRouteChanged?.Invoke(_activePath);
             return true;
@@ -274,17 +306,23 @@ namespace OutsiderDriver.Vehicles
             _activePath.Clear();
             _currentPathIndex = 0;
             _isYielding = false;
+            _laneMergePathIndex = -1;
+            _laneMergeComplete = false;
             OnRouteChanged?.Invoke(_activePath);
         }
+
+        private IsometricGroundProjection GroundProjection =>
+            _roadNetwork != null ? _roadNetwork.GroundProjection : IsometricGroundProjection.Default;
 
         /// <summary>
         /// Checks whether another active vehicle is directly ahead within the forward sensor cone,
         /// or whether the upcoming intersection node requires yielding.
+        /// All distances are ground-plane metres.
         /// </summary>
-        public bool ShouldYield(RoadNode upcomingNode, Vector3 travelDirection, float distanceToNode)
+        public bool ShouldYield(RoadNode upcomingNode, Vector2 travelGroundDirection, float distanceToNode)
         {
             // 1. Check forward vehicle spacing sensor against other active vehicles
-            if (IsVehicleBlockingAhead(travelDirection))
+            if (IsVehicleBlockingAhead(travelGroundDirection))
             {
                 return true;
             }
@@ -327,12 +365,14 @@ namespace OutsiderDriver.Vehicles
             return false;
         }
 
-        private bool IsVehicleBlockingAhead(Vector3 travelDirection)
+        private bool IsVehicleBlockingAhead(Vector2 travelGroundDirection)
         {
-            if (travelDirection.sqrMagnitude < 0.0001f) return false;
+            if (travelGroundDirection.sqrMagnitude < 0.0001f) return false;
 
-            Vector3 dirNormalized = travelDirection.normalized;
-            Vector3 myPos = transform.position;
+            var projection = GroundProjection;
+            Vector2 direction = travelGroundDirection.normalized;
+            Vector2 right = new Vector2(direction.y, -direction.x);
+            Vector2 myGroundPosition = projection.WorldToGround(transform.position);
             float maxDistSqr = _forwardSensorDistance * _forwardSensorDistance;
             float minCosAngle = Mathf.Cos(_forwardSensorAngle * Mathf.Deg2Rad);
 
@@ -342,19 +382,21 @@ namespace OutsiderDriver.Vehicles
                 if (other == null || ReferenceEquals(other, this)) continue;
 
                 // Ignore oncoming vehicles traveling in the opposite lane so bidirectional streets never deadlock head-on
-                if (other.HasActiveRoute && Vector3.Dot(dirNormalized, other.ForwardDirection) < -0.25f)
+                if (other.HasActiveRoute && Vector2.Dot(direction, other._forwardGroundDirection) < -0.25f)
                 {
                     continue;
                 }
 
-                Vector3 toOther = other.transform.position - myPos;
-                toOther.z = 0f;
+                Vector2 toOther = projection.WorldToGround(other.transform.position) - myGroundPosition;
                 float distSqr = toOther.sqrMagnitude;
 
                 if (distSqr <= 0.0001f || distSqr > maxDistSqr) continue;
 
-                Vector3 toOtherNormalized = toOther / Mathf.Sqrt(distSqr);
-                float dot = Vector3.Dot(dirNormalized, toOtherNormalized);
+                // Only vehicles inside this lane's corridor block the path; adjacent lanes do not.
+                if (Mathf.Abs(Vector2.Dot(right, toOther)) > _forwardSensorHalfWidth) continue;
+
+                float distance = Mathf.Sqrt(distSqr);
+                float dot = Vector2.Dot(direction, toOther) / distance;
                 if (dot >= minCosAngle)
                 {
                     return true;
@@ -366,9 +408,11 @@ namespace OutsiderDriver.Vehicles
 
         private bool IsCrossTrafficApproaching(RoadNode intersectionNode)
         {
-            Vector3 nodePos = intersectionNode.Position;
+            var projection = GroundProjection;
+            Vector2 nodeGround = projection.WorldToGround(intersectionNode.Position);
             float checkRadius = intersectionNode.IntersectionClearanceRadius * 1.5f;
             float checkRadiusSqr = checkRadius * checkRadius;
+            Vector2 myGroundPosition = projection.WorldToGround(transform.position);
 
             for (int i = 0; i < ActiveVehicles.Count; i++)
             {
@@ -378,11 +422,10 @@ namespace OutsiderDriver.Vehicles
                 // If another vehicle is targeting this intersection and is closer or moving on a main artery
                 if (other.CurrentTargetNode == intersectionNode)
                 {
-                    Vector3 toNode = nodePos - other.transform.position;
-                    toNode.z = 0f;
+                    Vector2 toNode = nodeGround - projection.WorldToGround(other.transform.position);
                     if (toNode.sqrMagnitude <= checkRadiusSqr)
                     {
-                        float myDistSqr = (nodePos - transform.position).sqrMagnitude;
+                        float myDistSqr = (nodeGround - myGroundPosition).sqrMagnitude;
                         if (toNode.sqrMagnitude < myDistSqr)
                         {
                             return true;
@@ -396,16 +439,24 @@ namespace OutsiderDriver.Vehicles
 
         private void MoveAlongPath(float deltaTime)
         {
+            var projection = GroundProjection;
             RoadNode targetNode = _activePath[_currentPathIndex];
-            Vector3 targetPos = targetNode.Position;
-            Vector3 currentPos = transform.position;
+            if (_laneMergePathIndex != _currentPathIndex)
+            {
+                _laneMergePathIndex = _currentPathIndex;
+                _laneMergeComplete = false;
+            }
 
-            Vector3 directionToTarget = targetPos - currentPos;
-            directionToTarget.z = 0f;
-            float distanceToTarget = directionToTarget.magnitude;
+            Vector2 currentGround = projection.WorldToGround(transform.position);
+            Vector2 nodeGround = projection.WorldToGround(targetNode.Position);
+            Vector2 laneTargetGround = GetLaneTargetGround(projection, targetNode, currentGround);
+            Vector2 directionToTarget = laneTargetGround - currentGround;
+            float distanceToNode = (nodeGround - currentGround).magnitude;
+            float arrivalRadius = Mathf.Max(_waypointArrivalRadius, targetNode.LaneOffsetMeters + 0.9f);
 
-            // Check if arrived at current waypoint
-            if (distanceToTarget <= _waypointArrivalRadius)
+            // Check if arrived at the authored waypoint. The car may pass beside the node in its lane,
+            // so this is measured to the node while steering uses the lane-parallel target.
+            if (distanceToNode <= arrivalRadius)
             {
                 if (_reservedNode == targetNode)
                 {
@@ -418,28 +469,34 @@ namespace OutsiderDriver.Vehicles
                 if (_currentPathIndex >= _activePath.Count)
                 {
                     RoadNode reached = targetNode;
+                    Vector2 finalGround = GetLaneEndGround(projection, targetNode);
+                    Vector2 finalWorld = projection.GroundToWorld(finalGround);
+                    transform.position = new Vector3(finalWorld.x, finalWorld.y, transform.position.z);
                     CancelRoute();
                     OnDestinationReached?.Invoke(reached);
                     return;
                 }
 
                 targetNode = _activePath[_currentPathIndex];
-                targetPos = targetNode.Position;
-                directionToTarget = targetPos - currentPos;
-                directionToTarget.z = 0f;
-                distanceToTarget = directionToTarget.magnitude;
+                _laneMergePathIndex = _currentPathIndex;
+                _laneMergeComplete = false;
+                nodeGround = projection.WorldToGround(targetNode.Position);
+                laneTargetGround = GetLaneTargetGround(projection, targetNode, currentGround);
+                directionToTarget = laneTargetGround - currentGround;
+                distanceToNode = (nodeGround - currentGround).magnitude;
             }
 
             if (directionToTarget.sqrMagnitude > 0.0001f)
             {
-                _forwardDirection = directionToTarget.normalized;
+                _forwardGroundDirection = directionToTarget.normalized;
+                _forwardDirection = projection.GroundDeltaToWorld(_forwardGroundDirection).normalized;
             }
 
             // Update facing direction
-            UpdateIsometricFacing(_forwardDirection);
+            UpdateIsometricFacing(_forwardGroundDirection);
 
             // Evaluate forward sensor and intersection right-of-way rules
-            _isYielding = ShouldYield(targetNode, _forwardDirection, distanceToTarget);
+            _isYielding = ShouldYield(targetNode, _forwardGroundDirection, distanceToNode);
             if (_isYielding)
             {
                 ApplyDeceleration(deltaTime);
@@ -451,9 +508,96 @@ namespace OutsiderDriver.Vehicles
 
             if (_currentSpeed > 0f)
             {
-                Vector3 movement = _forwardDirection * (_currentSpeed * deltaTime);
-                transform.position += movement;
+                float step = _currentSpeed * deltaTime;
+                float targetDistance = directionToTarget.magnitude;
+                if (step > targetDistance)
+                {
+                    step = targetDistance;
+                }
+
+                Vector2 groundMovement = _forwardGroundDirection * step;
+                transform.position += (Vector3)projection.GroundDeltaToWorld(groundMovement);
             }
+        }
+
+        /// <summary>
+        /// Returns the next ground-plane point on the lane-parallel path for the current segment.
+        /// The lane line is offset from the authored centerline for the whole segment, so opposing
+        /// vehicles merge into their own lane near the junction instead of driving diagonally at each other.
+        /// </summary>
+        private Vector2 GetLaneTargetGround(IsometricGroundProjection projection, RoadNode targetNode, Vector2 currentGround)
+        {
+            Vector2 targetGround = projection.WorldToGround(targetNode.Position);
+            float laneOffset = targetNode.LaneOffsetMeters;
+            if (laneOffset <= 0.0001f)
+            {
+                return targetGround;
+            }
+
+            int previousIndex = Mathf.Max(0, _currentPathIndex - 1);
+            Vector2 previousGround = projection.WorldToGround(_activePath[previousIndex].Position);
+            Vector2 segmentDirection = targetGround - previousGround;
+            if (segmentDirection.sqrMagnitude < 0.0001f)
+            {
+                return targetGround;
+            }
+
+            segmentDirection.Normalize();
+            Vector2 right = new Vector2(segmentDirection.y, -segmentDirection.x);
+            Vector2 laneStart = previousGround + right * laneOffset;
+
+            // The merge is a one-time state per segment. A per-frame lateral threshold
+            // oscillates when a fast vehicle overshoots the lane line between ticks.
+            if (!_laneMergeComplete)
+            {
+                Vector2 offset = currentGround - laneStart;
+                float lateralDistance = Mathf.Abs(Vector2.Dot(offset, right));
+                float progress = Vector2.Dot(offset, segmentDirection);
+                if (lateralDistance <= 0.6f || progress >= 0.6f)
+                {
+                    _laneMergeComplete = true;
+                }
+
+                if (!_laneMergeComplete)
+                {
+                    return laneStart;
+                }
+            }
+
+            // Pure-pursuit the lane line with a short lookahead so residual lateral error
+            // converges quickly instead of decaying over the whole segment.
+            Vector2 laneEnd = targetGround + right * laneOffset;
+            float segmentLength = (laneEnd - laneStart).magnitude;
+            float longitudinal = Vector2.Dot(currentGround - laneStart, segmentDirection);
+            float lookahead = longitudinal + 8f;
+            if (lookahead >= segmentLength)
+            {
+                return laneEnd;
+            }
+
+            return laneStart + segmentDirection * lookahead;
+        }
+
+        private Vector2 GetLaneEndGround(IsometricGroundProjection projection, RoadNode targetNode)
+        {
+            Vector2 targetGround = projection.WorldToGround(targetNode.Position);
+            float laneOffset = targetNode.LaneOffsetMeters;
+            if (laneOffset <= 0.0001f)
+            {
+                return targetGround;
+            }
+
+            int previousIndex = Mathf.Max(0, _currentPathIndex - 1);
+            Vector2 previousGround = projection.WorldToGround(_activePath[previousIndex].Position);
+            Vector2 segmentDirection = targetGround - previousGround;
+            if (segmentDirection.sqrMagnitude < 0.0001f)
+            {
+                return targetGround;
+            }
+
+            segmentDirection.Normalize();
+            Vector2 right = new Vector2(segmentDirection.y, -segmentDirection.x);
+            return targetGround + right * laneOffset;
         }
 
         private void ReleaseReservedNode()
@@ -473,11 +617,11 @@ namespace OutsiderDriver.Vehicles
             }
         }
 
-        private void UpdateIsometricFacing(Vector3 moveVector)
+        private void UpdateIsometricFacing(Vector2 groundDirection)
         {
-            if (moveVector.sqrMagnitude < 0.001f) return;
+            if (groundDirection.sqrMagnitude < 0.001f) return;
 
-            IsometricDirection newFacing = DetermineIsometricDirection(moveVector.x, moveVector.y);
+            IsometricDirection newFacing = DetermineIsometricDirection(groundDirection.x, groundDirection.y);
             if (newFacing != _currentFacing)
             {
                 _currentFacing = newFacing;
@@ -485,14 +629,15 @@ namespace OutsiderDriver.Vehicles
             }
         }
 
-        private static IsometricDirection DetermineIsometricDirection(float x, float y)
+        private static IsometricDirection DetermineIsometricDirection(float groundX, float groundY)
         {
-            // 2:1 isometric projection angle check:
-            // NE (+X, +Y), SE (+X, -Y), SW (-X, -Y), NW (-X, +Y)
-            if (x >= 0 && y >= 0) return IsometricDirection.NorthEast;
-            if (x >= 0 && y < 0) return IsometricDirection.SouthEast;
-            if (x < 0 && y < 0) return IsometricDirection.SouthWest;
-            return IsometricDirection.NorthWest;
+            // Ground axes map to the four screen diagonals in a 2:1 isometric projection.
+            if (Mathf.Abs(groundX) >= Mathf.Abs(groundY))
+            {
+                return groundX >= 0f ? IsometricDirection.NorthEast : IsometricDirection.SouthWest;
+            }
+
+            return groundY >= 0f ? IsometricDirection.NorthWest : IsometricDirection.SouthEast;
         }
 
 #if UNITY_EDITOR

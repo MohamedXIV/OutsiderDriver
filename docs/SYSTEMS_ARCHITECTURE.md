@@ -59,6 +59,8 @@ The project adopts **[VContainer](https://github.com/hadashiA/VContainer)** for 
 * **`CitySceneLifetimeScope` (Attached to Gameplay Scenes):**
   * Registers scene-bound directors and registries:
     * `RoadNetwork` / `WorldRegistry`: Graph querying and landmark locations.
+      * `RoadNetwork` owns the sampled `IsometricGroundProjection`; A*, speeds, sensors, clearance and lane offsets use ground metres, not raw world units.
+      * Navigation nodes are authored separately from visual Tilemap/prefab pieces; see [City Scale & Street Standards](CITY_SCALE_AND_STREET_STANDARDS.md).
     * `TrafficDirector`: Ambient vehicle/pedestrian spawner and pool manager.
     * `RideLifecycleService`: Active passenger ride state machine.
     * UI Presenters injecting both domain models and scene `UIDocument` views.
@@ -114,7 +116,7 @@ flowchart LR
 ```
 
 1. **The Moving Bubble:**
-   * A `TrafficDirector` continuously queries the `RoadNetwork` within an active radius (e.g. 35 meters) around the player's taxi or character.
+   * A `TrafficDirector` continuously queries the `RoadNetwork` within an active radius (e.g. 35 meters) around the player's taxi or character. Bubble radii and spawn clearance are ground metres.
    * Ambient ground-contact vehicles and passersby spawn from an `ObjectPool` at road edges entering the bubble.
    * When an entity leaves the radius or passes behind the camera, it is returned to the pool immediately.
 2. **Intersection Right-of-Way & Yielding:**

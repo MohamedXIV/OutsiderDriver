@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 8095124493251153635}
   - component: {fileID: 1292633159951811430}
-  - component: {fileID: 7930169144503877222}
   m_Layer: 0
   m_Name: RoadPiece_EndCap
   m_TagString: Untagged
@@ -93,23 +92,3 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
   m_BlendShapeWeights: []
---- !u!114 &7930169144503877222
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7811704384158417283}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0c9d09184fd6c1e41b08e50c3cf398fc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: OutsiderDriver.Runtime::OutsiderDriver.Navigation.RoadNode
-  _nodeId: roadpiece_endcap
-  _districtId: district_01
-  _pieceType: 4
-  _elevationLevel: 0
-  _isElevationRamp: 0
-  _priority: 0
-  _intersectionClearanceRadius: 1.25
-  _connectedNodes: []

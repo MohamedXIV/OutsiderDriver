@@ -14,10 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: OutsiderDriver.Runtime::OutsiderDriver.Data.CarModelSO
   _modelId: car_player_taxi
   _displayName: Old Retro-Futurist Ground Cab
-  _maxSpeed: 5.5
-  _acceleration: 4.8
-  _deceleration: 6.8
-  _forwardSensorDistance: 1.8
+  _maxSpeed: 9
+  _acceleration: 3.5
+  _deceleration: 5
+  _forwardSensorDistance: 9
   _passengerCapacity: 3
   _chassisSprite: {fileID: 0}
   _bodyTint: {r: 1, g: 0.78, b: 0.28, a: 1}
