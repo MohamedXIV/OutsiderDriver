@@ -16,7 +16,7 @@
 - Buildings can *look* rounded, layered, multi-storey and volumetric in painted **2D artwork**. Roads can *look* elevated, supported and three-dimensional while still using 2D scene assets and explicit road connectivity/elevation semantics.
 - Concept boards showing perspective, cutaway dioramas, 3D model sheets or first-person taxi views are **art/mood/world-design references only**. They do not approve a Unity 3D world, 3D-first assets, runtime mesh city, first-person cabin mode, or a hybrid 3D world.
 - Native Unity 2D authoring (Tilemaps + authored SpriteRenderer-based scene objects) is the first choice. Never default to a custom draw-everything polygon system, mathematical fake projection framework, procedural geometry renderer, or 3D mesh simulation because of old project history.
-- **Not yet locked:** exact camera angle, tile dimensions, pixel density, art style, Y-sorting settings, height/occlusion mechanism. Do not fabricate these and call them approved. Technical changes to the fundamental 2D representation need explicit owner consent.
+- **Not yet locked:** exact camera angle, on-screen/pixel tile dimensions, pixel density, art style, Y-sorting refinements, height/occlusion mechanism. **The logical city ground-plan cell is now fixed at 1m × 1m (P-031)**; see [City Scale & Street Standards](CITY_SCALE_AND_STREET_STANDARDS.md). This does not imply Unity Transform-unit or screen-pixel equivalence without calibration. Do not fabricate these and call them approved. Technical changes to the fundamental 2D representation need explicit owner consent.
 
 ### 2D isometric world checks for an agent
 
@@ -105,12 +105,20 @@ A district record should **be able to represent** the following categories as de
 
 **Keep the world deep through deliberately written history, economics, languages and social memory; do not fabricate those elements automatically because a data schema has optional metadata fields.**
 
+### Canonical physical city scale (P-031 / P-032 / P-033, owner 2026-10-24)
+
+- **Logical ground planning cell = 1 m × 1 m**, shared by all streets, taxi dimensions, sidewalks, lot footprints and buildings. The nominal taxi is **2 m wide and 4–5 m long**, lane **3 m**, and sidewalk **2 m** on each side; basic two-way local section **10 m total** and two lanes/direction **16 m total**. Larger street classes and special width exceptions are allowed; additional median, parking, curb bay or other reservations add space.
+- **Never conflate** a logical 1m ground cell with the on-screen isometric diamond, sprite pixels, Unity's isometric cell-size projection parameter or measured Unity Transform lengths without a tested calibration. The current production scene was constructed before this decision; realigning art, navigation, movement and camera is implementation work, not already-verified reality.
+- Roads are **full-width drawn/painted surfaces**, not 1-cell-thick ribbons. Unique `RoadNode`s are for sparse lane-aware routes/turns/intersections/stops and should not be cloned indiscriminately with repeatable visual prefabs. Bidirectional traffic should be guided along sensible *separate directions* when necessary for passing. The drawn Tilemap and connected road graph must agree.
+- The screenshot's flat schematic streets and building symbols are **not visual approval**. True native Unity 2D isometric remains required; show building masses, fronts, sidewalks, natural street use and rendering/occlusion cues, not a 3D conversion. Unity Tile Palette and Grid/Tilemap isometric overlay are the editor-authoring reference; the default Scene View grey background grid may stay Cartesian.
+- Source: [City Scale & Street Standards](CITY_SCALE_AND_STREET_STANDARDS.md). No procedural roads framework or monolithic scene-builder is authorized.
+
 ### Coordinates, area boundaries and streets
 
 - Locations should have **real authored spatial meaning**, not exist only as labels and unexplained five-node teleport graphs.
 - A Unity `Transform`, serialized coordinate, map-space anchor or authored footprint is appropriate depending on the record and how the level is edited. Do **not** duplicate authoritative coordinates in multiple places where they will drift.
 - Distinguish **position** (anchor/representative point), **shape** (actual district boundary or lot footprint when needed) and **connectivity** (actual accessible roads/ramps). A point position does **not** define district limits or guarantee route access.
-- Street hierarchy, regular blocks and standard-sized lots are **city-planning direction under discussion**, not an imposed procedural generator. When standardized footprints are chosen, store the parameters as authored data rather than scattering widths/sizes in unrelated hardcoded scripts.
+- Street hierarchy, regular blocks and standardized lots are **authored planning directions, not an imposed procedural generator**. The 1m logical cell and baseline lane/sidewalk/car scale are now approved; exact block sizes/lot shapes remain editable and unsettled. Store recurring street-class widths once rather than scattered magic numbers when production code needs them.
 - Same for candidate district divisions and nicknames: the owner has not yet locked the new four-district geography; do not make a beautiful brainstorm board into the immutable official city layout.
 - In-world names should have cultural history and nuance; keep **candidate names and status** separate from the approved localized display name. A list of candidates is an **editorial aid**, not a runtime random-name pool.
 
