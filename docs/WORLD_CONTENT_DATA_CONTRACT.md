@@ -92,6 +92,19 @@ A district record should **be able to represent** the following categories as de
 
 **Everything above, including assigning district_01 to Outer Margin, is illustrative**. It does not commit the district order, content list, actual names, coordinates, JSON storage, field names, topology or lore. In production, one or a few Unity ScriptableObject types plus authored scene references may be more appropriate; do not replace the entire Unity authoring experience with JSON unless it solves a genuine need.
 
+### Alien-only diegetic names, including everyday nicknames (owner decision P-029)
+
+**Hard rule:** All names a resident actually uses for a city, district, neighborhood, street, landmark, business, institution or building—even colloquial descriptive slang—must belong to an **in-world alien language**. An English compound-word nickname is **not** alien simply because it sounds poetic.
+
+- `The Docks`, `Market Junction`, `Upper Route`, `Outer Margin`, `Lantern Row`, `Patchworks`, etc. may remain **functional development descriptors** only. They are **not approved alien proper names**, official titles or resident slang.
+- A meaningful name can have an authored spoken/written alien form, associated language/register, cultural or community provenance, historical origin, and the meaning/gloss for developers. **Use only fields needed by real content.** Do not invent a complete conlang or political history as filler.
+- Names may eventually differ across official, local colloquial, historical and other-language usage. **All variants must still be alien-language names**. Multi-name complexity is not a requirement until actual writing uses it.
+- For a localized player UI, preserve the approved alien proper name through suitable script/transliteration. A human-language gloss may explain its meaning in text, but must not be mistaken for a name the city's residents utter.
+- **Species ≠ Language ≠ Culture ≠ Community ≠ Faction/Affiliation.** Never derive a citizen's language or regional nickname automatically from their species. Previous `Trade/Common`, `Local`, `Cant` are provisional language labels, not named fictional tongues; `kind:a` etc. were experimental species identifiers, not settled lore.
+- **Currency still undecided:** Previous suggested names **Rin / Tal / Vara** are all unapproved. Internal `cr` and `credits` are temporary account/coding labels, **not** the in-world currency name or symbol. Do not invent canonical currency etymology or finalize it in asset text.
+
+**Keep the world deep through deliberately written history, economics, languages and social memory; do not fabricate those elements automatically because a data schema has optional metadata fields.**
+
 ### Coordinates, area boundaries and streets
 
 - Locations should have **real authored spatial meaning**, not exist only as labels and unexplained five-node teleport graphs.
