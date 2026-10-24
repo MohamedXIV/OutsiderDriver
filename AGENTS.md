@@ -30,6 +30,10 @@ Everything implemented should strengthen that experience. If you cannot explain 
 
 **2. Prefer DATA-DRIVEN content wherever practical.** Districts, streets, blocks, buildings, locations, residents and other editable world content should be represented through stable IDs plus authored metadata (location/coordinates/bounds when needed, names and candidate names, descriptions, history/lore, relevant asset references, etc.). **Stable IDs, e.g. `district_01`, are distinct from human-readable/localized names**; renaming a district or rewriting its history should not require editing gameplay rules. Keep identity separate from authored content and separate from runtime mutable state. Use existing simple ScriptableObjects and Unity scene references; no unnecessary generic CMS or invented schema.
 
+**3. IN-WORLD NAMES MUST BE ALIEN (owner, 2026-10-24).** All actual city/district/neighborhood/street/landmark/building names and **colloquial nicknames** must originate within fictional alien languages/cultures. English names and English compound-word nicknames are not diegetic canon. English descriptions (e.g. "The Docks", "Outer Margin") are allowed as **development labels only**. Proper names may be transliterated for readable UI, without silently translating their names into English phrases. Names should have authored cultural and linguistic provenance where needed; provisional language IDs and species IDs are not settled lore.
+
+**Currency is OPEN.** Earlier candidates **Rin, Tal, Vara** are suggestions only; `cr` / `credits` are temporary technical accounting labels, **not** an approved in-world name or symbol. Do not canonize any by inference.
+
 **Data-driven != procedural generation.** Locations and world layout are authored. The prior four-district brainstorm and candidate place names are **NOT canon** merely because they appear in images or conversation. See [World & Content Data Contract](docs/WORLD_CONTENT_DATA_CONTRACT.md) for precise rules, examples and known existing-code divergences.
 
 ## Absolute behavior requirements for agents
