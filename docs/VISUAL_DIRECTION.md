@@ -67,6 +67,8 @@ The fourth and fifth user images compare **The Docks**, **Market Junction** and 
 
 **Not approved:** mandatory use of these three particular districts or names, permanent dusk lighting, infinite elevated highway density, or 3D-first development.
 
+**Non-negotiable clarification (2026-10-24):** The actual game is **2D ISOMETRIC**, including city exteriors, home/garage interiors, ground vehicles and people. Perspective concept illustrations, diorama-style planning boards and 3D-looking asset sheets guide **visual shape and mood only**. They do not authorize a 3D city, first-person camera or a 3D asset-production pipeline. For authored geography and city/character metadata, follow the [World & Content Data Contract](WORLD_CONTENT_DATA_CONTRACT.md); editable candidate names and descriptions are data, not painted-in canonical labels.
+
 ## 3. Built environment principles
 
 ### Alien architecture
