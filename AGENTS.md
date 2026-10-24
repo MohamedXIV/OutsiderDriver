@@ -74,6 +74,16 @@ Older projects are **design archaeology and lessons**, not the new engine's star
 - Respect scene/.meta/GUID hygiene and actual installed package versions.
 - Don't add a package or framework without a genuine product need.
 
+### 4a. Legacy scene quarantine and Unity CLI authoring (owner 2026-10-24)
+
+**`TaxiSandboxBuilder` has been deleted from the repo, together with its sole Editor assembly. NEVER recreate, extend, invoke or recommend it as the city/world production workflow.**
+
+- `Assets/_Project/Scenes/TaxiSandbox.unity` is **LEGACY / TEST ONLY**, retained temporarily as a serialized inspection/behavior fixture. It is **not a production city template, not authoritative map or road data**, and is not included in `ProjectSettings/EditorBuildSettings.asset`. A node or placeholder in it does not justify introducing that location into real world data.
+- `TaxiTestDriver` is also a sandbox harness; `RoadNetwork`, `RoadNode`, `VehicleController`, `HomeNeighborhoodLayout`, etc. are separately implemented runtime components and **not automatically discarded** just because the old scene author was removed. Review each asset's actual role and references before changing it.
+- For work in a **running local Unity Editor**, prefer native 2D Isometric Grid/Tilemaps, Tile Palette, editable Scene/Prefab assets and the official **Unity CLI + `com.unity.pipeline`** (`unity command`, `unity command eval`, `unity command eval_file` where supported) for *small, inspectable editor actions*. The package is in this project's manifest, but confirm that the installed CLI and Editor connection work; **GitHub API access alone cannot run those local commands**.
+- CLI/eval is an **authoring/automation interface**, NOT a second renderer, new gameplay runtime or substitute for saved and editable scenes. After authoring changes, save through Unity Editor, review serialized scene and meta GUIDs, inspect actual visuals/road links, and test in Editor and PlayMode where possible.
+- No new monolithic `CityBuilder` or universal generator. For repeated road editing, start with existing native Tile Palette / prefab workflow; add a small editor-only helper only when demonstrated need outweighs its maintenance cost.
+
 ### 5. No throwaway-scene-to-production pipeline
 
 The owner explicitly does **not** want another throwaway demonstration turned by an agent into the foundation over dozens of PRs.
