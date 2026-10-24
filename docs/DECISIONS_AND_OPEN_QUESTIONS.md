@@ -74,6 +74,10 @@ This file is authoritative alongside [GAME_DESIGN.md](GAME_DESIGN.md). It record
 
 | P-030 | **Retire the primitive `TaxiSandboxBuilder`; use native Unity / official CLI for authored world editing** (2026-10-24) | Delete the old builder and now-unused editor assembly; never promote, extend or regenerate the old five-node sandbox as production. Preserve `TaxiSandbox.unity` as explicitly **LEGACY / TEST ONLY** until it is intentionally replaced. Favor native 2D Tilemap/Prefab scene authoring and optional Unity CLI + Pipeline live Editor commands, without requiring a monolithic successor. CLI is experimental and must be verified on the operator's machine; saved scenes, data IDs and actual PlayMode behavior remain the source of truth. |
 
+| P-031 | **Unified near-real city ground scale: one logical 1 m × 1 m cell** (2026-10-24) | Design all streets, vehicles, sidewalks, lots, buildings and the garage in the same measured logical ground-plane convention. Baseline: ordinary car/taxi about **2 m wide and 4–5 m long**, one travel lane **3 m wide**, typical sidewalks **2 m on each side**; 2-way local street **10 m total** (3+3+2+2), two lanes/direction **16 m total** (4×3+2+2). Wider/narrower road classes are possible; dimensions are configurable planning baselines rather than mandatory universal civil-engineering code. A 1 m ground cell is **not** a 1 m screen-space diamond or proof of one-to-one Unity Transform delta. See [City Scale & Street Standards](CITY_SCALE_AND_STREET_STANDARDS.md). |
+| P-032 | **Full-width authored streets; visually independent, sparse lane-aware navigation** (2026-10-24) | A road must occupy its plausible full physical width, **not one symbolic painted cell**. Paint with native Unity 2D Isometric Tilemaps; RoadNodes/graph serve unique intersections, lane centerlines/turns and access points, **not one node per tile**. Separate opposing driving directions where needed, ensure sprites and navigation agree, and prevent duplicate IDs from reusable road prefabs. Rebuild/verify intersections and alternative routes in a real authored scene. |
+| P-033 | **Retain true 2D isometric projection, but reject the current flat diagram as final city art** (2026-10-24) | The current screenshot has an isometric diamond ground layout; the visual shortcoming is schematic, small buildings and thin roads, not permission to convert to 3D or invent a new projection. Streets and architecture should show plausible volume, frontage, curb and entrances, layering and restrained local props. For editing, prefer the native Grid/Tilemap/Tile Palette isometric cell view; the grey generic Scene View grid need not itself rotate. Final camera/PPU/sprite-pivot/occlusion details remain OPEN. |
+
 ## B. Earlier product decisions retained as direction (not an implementation mandate)
 
 These come from the prior design archive. Unless explicitly overridden, they describe the **intended flavor and likely player-facing behaviors**, not a task list to rebuild every corresponding old subsystem.
@@ -129,9 +133,9 @@ These come from the prior design archive. Unless explicitly overridden, they des
 | O-001 | In-game art style for small characters | Could be pixel art, stylized sprites, another simple treatment; **not finalized** |
 | O-002 | Portrait animation/runtime | **SETTLED by P-022**: Layered 2D sprites with Unity 2D Animation bones |
 | O-003 | Camera geometry and specific zoom | 2D isometric, close and cinematic; Cinemachine 3 approved in P-019; exact zoom/offsets TBD |
-| O-004 | City map extent and precise data | Authored connected districts and coherent journeys; city size, district count/placement and geography TBD. Four-district images/names are unapproved concept proposals; stable `district_01`-style IDs and metadata independence ARE approved |
+| O-004 | City map extent and precise data | Authored connected districts and coherent journeys; geographic extent, district count/placement and boundaries TBD. **Logical ground scale is settled by P-031.** Four-district images/names are unapproved concept proposals; stable `district_01`-style IDs and metadata independence ARE approved |
 | O-005 | On-foot boundary beyond starter area | Home and own neighborhood approved initially; other districts and interiors not promised |
-| O-006 | Home/garage layout and interactions | True walkable home and previously intended garage; content and scene scale TBD |
+| O-006 | Home/garage layout and interactions | Two-story home/garage and unified 1m logical scale are settled; exact footprint, clearance, contents and scene layout TBD |
 | O-007 | Taxi manual controls | Semi-auto intent; whether any direct steering/minor intervention exists TBD |
 | O-008 | Passenger acquisition UX | Street hails, app-like offers, underground calls are precedents; exact UI and mix TBD |
 | O-009 | NPC numbers, significance and retention | Some ambient/persistent/significant distinction sensible; exact numbers and thresholds TBD |
@@ -144,7 +148,7 @@ These come from the prior design archive. Unless explicitly overridden, they des
 | O-016 | Translator progression | Previous binary modules and starter rules guide design; final merchandise/catalog/prices TBD |
 | O-017 | Ink adoption / dialogue integration | **SETTLED by P-020**: Ink canonical narrative engine via `ink-unity-integration` |
 | O-018 | Radio music/production | Alien stations desired; soundtrack format, licenses and content plan TBD |
-| O-019 | Visual asset pipeline | Unity 2D target, artistic references; actual sprite/tile resolutions, lighting, animation and sorting approach TBD |
+| O-019 | Visual asset pipeline | True Unity 2D isometric + 1m logical ground plan are settled. Pixel density, sprite/pivot/camera/lighting, occlusion and final styling TBD |
 | O-020 | Final HUD/navigation/input | **SETTLED by P-019**: UI Toolkit with MVP Presenters + Unity Input System |
 | O-021 | Platforms and release targets | Unity template alone does not imply shipped Windows/Web/Linux/mobile; targets and performance thresholds TBD |
 | O-022 | Weather/day-night scope | Atmosphere is wanted; continuous clock (P-017) drives lighting transitions; dynamic weather TBD |
@@ -154,6 +158,9 @@ These come from the prior design archive. Unless explicitly overridden, they des
 
 | O-026 | **Currency name and symbol** | **Unresolved.** `Rin`, `Tal`, `Vara` are three previously discussed proposals, none approved; `cr` / `credits` remain temporary technical accounting labels, not the in-world currency name. |
 | O-027 | **Alien toponyms, group names and cultural naming conventions** | Alien-only names are mandatory (P-029), but actual official/local colloquial/historic names, etymologies, cultural affiliations and spoken languages' real names remain open. Earlier `Trade/Common`, `Local`, `Cant` and `kind:a` etc. are not approved alien names. |
+
+| O-028 | **Projection, PPU and motion-unit calibration** | Approved 1 logical ground cell = 1 m in city plan (P-031). How this maps to Unity X/Y/Z coordinates, current `Grid.cellSize=(1,0.5,1)`, meter-based speeds, sprite pivots, camera zoom and collision footprint must be calibrated in Editor; no automatic scene rescale is approved. |
+| O-029 | **Special street classes, junction templates and final visual density** | P-031/P-032 provide nominal dimensions and full-width-road rule. Parking, medians, bus lanes, corner radii, alleys, detailed block footprints, intersections, props and approved final look are still TBD. |
 
 ### How to settle an open question
 
