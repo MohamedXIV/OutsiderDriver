@@ -18,7 +18,7 @@ You are an illegal human resident living under a cover identity in a non-human c
 - **City:** ordinary activity and believable local life without needing a detailed simulator running for every resident.
 - **Content:** **data-driven by default** where practical: stable IDs (`district_01`, etc.) independent of editable names, candidate names, lore, world positions/bounds, relevant references and authored metadata.
 
-**Development status (October 23, 2026):** clean Unity 2D template plus a newly established design/agent documentation set. The previous versions' gameplay code and architecture are **not** migrated, and these docs are not evidence that the described features are implemented.
+**Repository review (October 24, 2026):** The Unity project now has authored C# runtime foundations for vehicle movement/traffic, road routing, ride handling, home/on-foot, dialogue, localization, audio, portraits and related EditMode tests. This is evidence of code presence, **not independent verification of Gemini's reported 46/46 test result or a finished playable city**. Code from earlier Godot and Babylon projects is not migrated.
 
 ## Canonical documentation
 
@@ -33,6 +33,13 @@ You are an illegal human resident living under a cover identity in a non-human c
 | **[AGENTS.md](AGENTS.md)** | Mandatory instructions and reading order for contributors and AI agents |
 
 > **Contributor instruction:** Read [AGENTS.md](AGENTS.md) before making decisions or changing the project. If the design does not actually settle a detail, **mark it open instead of guessing**.
+
+## Production scene and authoring boundaries
+
+- The old **`TaxiSandboxBuilder.cs` and its unused Editor assembly have been removed** at the owner's request. Do not recreate, run or extend a replacement mega-builder.
+- `Assets/_Project/Scenes/TaxiSandbox.unity` remains a **legacy inspection/test fixture only**. It is not the city layout or production scene, and is not in Editor Build Settings. `TaxiTestDriver` also remains a test harness.
+- Real city construction is **authored, data-driven 2D isometric content**: Unity native Tilemaps/Tile Palette, scene and prefab editing, referenced stable IDs, visible road links. Official **Unity CLI + `com.unity.pipeline`** may automate local Editor actions (`unity command`, `unity command eval`) instead of retaining a huge scene builder. The CLI requires an accessible running Editor and a configured connection; the manifest already includes the experimental Pipeline package.
+- No road, landmark or district name from the legacy test scene is game canon. Validate and save real Unity assets before describing them as production.
 
 ## Clear product boundaries
 
