@@ -127,9 +127,10 @@ The new repo already includes:
 - `Assets/_Project/Scripts/Runtime/Data/DistrictConfigSO.cs` with `DistrictId`, `DisplayName`, local language, atmosphere, radio, fares/traffic and landmark road-node IDs.
 - `Assets/_Project/Scripts/Runtime/Data/PassengerDefinitionSO.cs` with stable passenger ID, identity/culture, portrait/Ink, and schedule.
 - `Assets/_Project/Scripts/Runtime/Navigation/RoadNode.cs` with node IDs, position from a Transform and connected road nodes.
-- `Assets/_Project/Scripts/Editor/TaxiSandboxBuilder.cs` with **hardcoded temporary** names and positions for its current scene.
+- The old `TaxiSandboxBuilder.cs` was **deleted by explicit owner instruction on 2026-10-24**, including its Editor assembly; it must not be recreated as a production authoring tool.
+- `Assets/_Project/Scenes/TaxiSandbox.unity` is a **legacy, unshipped test fixture**, NOT the production district layout or road authoring source. Its hardcoded street/node names are placeholders. `TaxiTestDriver` is similarly test-only.
 
-**Known delta vs this contract (documentation only as of 2026-10-24):** `DistrictConfigSO` currently uses the default `district_amber_terrace` / `Amber Terrace`, so its example ID encodes a temporary name; several location/node names are hardcoded in the sandbox builder. These are existing code facts, **not newly approved canon**. When production district/scene data is authored, make stable IDs and metadata separable **with deliberate integration**; do not automatically rename serialized IDs or break the currently working scene merely to satisfy this document.
+**Known delta vs this contract:** `DistrictConfigSO` still has example defaults `district_amber_terrace` / `Amber Terrace`; do not mistake them or existing legacy-scene nodes for official names. Future authored district/road assets must use stable independent IDs and reliable editable Unity scene/Tilemap/Prefab data. Prefer native Unity authoring and the official Unity CLI + `com.unity.pipeline` to drive local Editor changes when beneficial; do not write another monolithic scene generator. Changes must be saved and verified in the actual Unity Editor.
 
 Prefer **extending and using the existing minimal domain-specific ScriptableObjects** where useful over creating duplicate district models, competing registries, a new database, a full-blown content-management platform, or another custom editor.
 
