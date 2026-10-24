@@ -40,16 +40,23 @@ namespace OutsiderDriver.Core.State
                 return new SaveStateData();
             }
 
-            var loaded = JsonUtility.FromJson<SaveStateData>(json);
-            if (loaded == null)
+            try
             {
-                return new SaveStateData();
-            }
+                var loaded = JsonUtility.FromJson<SaveStateData>(json);
+                if (loaded == null)
+                {
+                    return new SaveStateData();
+                }
 
-            loaded.Profile ??= new PlayerProfileData();
-            loaded.Profile.InstalledLanguageIds ??= new System.Collections.Generic.List<string>();
-            loaded.Profile.KnownResidents ??= new System.Collections.Generic.List<ResidentRelationshipData>();
-            return loaded;
+                loaded.Profile ??= new PlayerProfileData();
+                loaded.Profile.InstalledLanguageIds ??= new System.Collections.Generic.List<string>();
+                loaded.Profile.KnownResidents ??= new System.Collections.Generic.List<ResidentRelationshipData>();
+                return loaded;
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
 }

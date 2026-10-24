@@ -1,6 +1,7 @@
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;
+using OutsiderDriver.Core.Persistence;
 using OutsiderDriver.Core.State;
 using OutsiderDriver.Core.Time;
 using OutsiderDriver.Dialogue;
@@ -41,6 +42,9 @@ namespace OutsiderDriver.Core
 
             builder.Register<LocalizationService>(Lifetime.Singleton)
                 .As<ILocalizationService>();
+
+            builder.Register<SaveService>(Lifetime.Singleton)
+                .As<ISaveService>();
         }
     }
 }
