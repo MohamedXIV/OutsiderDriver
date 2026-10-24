@@ -4,6 +4,15 @@
 **Status:** Current owner-level architectural constraints, not a prebuilt architecture or authority to add systems.  
 **Read with:** [Game Design](GAME_DESIGN.md), [Decision Register](DECISIONS_AND_OPEN_QUESTIONS.md), [Visual Direction](VISUAL_DIRECTION.md).
 
+## Two mandatory invariants (owner-confirmed 2026-10-24)
+
+- **ACTUAL 2D ISOMETRIC:** All city, character, taxi and neighborhood visual world-building must remain Unity **2D** isometric, even if artwork conveys volume. 3D dioramas in image references are not 3D runtime requirements. Exact 2D sort/camera/art specifications are still open.
+- **DATA-DRIVEN BY DEFAULT WHEN PRACTICAL:** Represent district/location/street/resident identity with stable IDs (e.g. `district_01`), not temporary descriptive names. Place names, proposed alternate names, descriptions, cultural backstory, authored world positions/bounds, art and relevant relationships should be content metadata or scene-authored references rather than hardcoded in logic. Reuse existing ScriptableObjects and Unity-authored scenes, with one source of truth per property.
+- **NO PROCEDURAL CITY REQUIREMENT:** Data-driven means **editable, deliberately authored** content, not automatic map/lore generation. Do not erect a universal schema/registry/authoring platform in the name of flexibility; expand the current simple data types only as content requires.
+- **Legacy caution:** Current `DistrictConfigSO` examples include name-dependent IDs; sandbox road nodes are authored/hardcoded in a builder. Treat them as an integration concern when production content arrives, **not** an instruction to break the scene through a bulk rename right now.
+
+Canonical detailed rules: [World & Content Data Contract](WORLD_CONTENT_DATA_CONTRACT.md).
+
 ## 1. Start clean, not by porting the mistakes
 
 The owner explicitly requested a **fresh Unity project**, not migration from Godot 4 or Babylon.js. We preserve the **game's identity and useful lessons**, not code, files, event schemas, abstractions, performance liabilities, scene graphs, persistence migrations or technology decisions from the previous repos.
