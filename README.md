@@ -10,12 +10,13 @@ You are an illegal human resident living under a cover identity in a non-human c
 
 - **Engine:** Unity 6 (repository currently targets **6000.6.0f1**).
 - **Language:** C#.
-- **View:** genuine **2D isometric** city with authored streets and spaces.
+- **Non-negotiable view:** genuine **2D ISOMETRIC** game using authored Unity 2D sprites, Tilemaps and 2D scene conventions. Not a Unity 3D city seen through an angled camera.
 - **Driving:** semi-autonomous connected-road travel; route/destination decisions rather than a mandatory hardcore manual driving game.
 - **Walking:** real on-foot freedom, **initially limited to the player's home and own neighborhood**.
 - **Presentation:** beautiful, bright, cozy, rich **alien retro-futurism** and expressive attractive characters. The exact in-game sprite/pixel-art treatment is **not finalized**.
 - **Narrative:** voluntary contextual conversations, recurring individuals and possible relationships; no compulsory plot/quests.
 - **City:** ordinary activity and believable local life without needing a detailed simulator running for every resident.
+- **Content:** **data-driven by default** where practical: stable IDs (`district_01`, etc.) independent of editable names, candidate names, lore, world positions/bounds, relevant references and authored metadata.
 
 **Development status (October 23, 2026):** clean Unity 2D template plus a newly established design/agent documentation set. The previous versions' gameplay code and architecture are **not** migrated, and these docs are not evidence that the described features are implemented.
 
@@ -25,6 +26,7 @@ You are an illegal human resident living under a cover identity in a non-human c
 | --- | --- |
 | **[Game Design & DNA](docs/GAME_DESIGN.md)** | Detailed premise, activities, passengers, road travel, walking, residents, relationships, language, radio, economy, world, scope |
 | **[Decisions & Open Questions](docs/DECISIONS_AND_OPEN_QUESTIONS.md)** | What was approved, historically intended, superseded, merely illustrative or still undecided; IDs for every agent |
+| **[World & Content Data Contract](docs/WORLD_CONTENT_DATA_CONTRACT.md)** | Non-negotiable real 2D isometric representation; stable IDs and editable authored world metadata; distinction from procedural generation |
 | **[Systems Architecture](docs/SYSTEMS_ARCHITECTURE.md)** | Canonical technical blueprint: VContainer DI, TimeService ticks, GTA-style traffic bubble, Ink narrative engine, UI Toolkit MVP, and localization |
 | **[Visual Direction](docs/VISUAL_DIRECTION.md)** | Bright alien retro-futurism, architecture, vehicles, people, cozy home, user-supplied reference interpretations and art-production unknowns |
 | **[Engineering Principles](docs/ENGINEERING_PRINCIPLES.md)** | Unity-native 2D approach, clean production systems, performance validation, and previous mistakes to avoid |
@@ -39,7 +41,8 @@ You are an illegal human resident living under a cover identity in a non-human c
 - **No old code migration** from Babylon.js/TypeScript or Godot/GDScript.
 - **No technical demo or temporary test scene promoted as production architecture.**
 - **No giant simulation engine** built in advance of real player-facing need.
-- **Use native Unity 2D authoring** for static environment, sprites, animation and UI rather than a custom world renderer.
+- **Use native Unity 2D isometric authoring**, not a 3D world, for environment, sprites, animation and UI rather than a custom world renderer.
+- **Data-first authored content:** stable content identity, mutable display names/candidate names/lore/geography as data, not hardcoded canon in source.
 
 The game is meant to be **rich in people, atmosphere and possibility**, not rich in compulsory subsystems.
 
