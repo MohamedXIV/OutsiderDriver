@@ -1,6 +1,6 @@
 # Decision Register, Supersession Rules & Open Questions
 
-**Owner decisions through:** 2026-10-23  
+**Owner decisions through:** 2026-10-24  
 **Purpose:** Prevent developers and AI agents from filling design gaps with guesses, importing obsolete obligations, or mistaking a historical prototype for canonical gameplay.
 
 This file is authoritative alongside [GAME_DESIGN.md](GAME_DESIGN.md). It records **what the owner actually settled**, **what prior project documents contain**, and **what is still open**. It is not a speculative feature roadmap.
@@ -67,6 +67,9 @@ This file is authoritative alongside [GAME_DESIGN.md](GAME_DESIGN.md). It record
 | P-025 | **Native Unity 2D Isometric Pipeline & Depth Sorting** | Use Unity's native `Grid` + `Tilemap` (`Isometric Z as Y`) for roads, sidewalks, and environment footprints. Native Project Transparency Sorting (`CustomAxis` {x:0, y:1, z:-0.26}) is used for automatic sprite depth sorting without custom z-indexing scripts. Cinemachine 3 Virtual Cameras replace custom camera scripts for smooth isometric tracking |
 | P-026 | **Refined VehicleController Architecture & Sandbox Harness Isolation** | `VehicleController` is confirmed as the permanent production kinematic vehicle actor. `TaxiTestDriver` is explicitly scoped as a temporary sandbox test harness to be superseded by the production `RideLifecycleService` and on-foot player controls |
 
+| P-017 | **True 2D ISOMETRIC, not a Unity 3D world** (reaffirmed 2026-10-24) | All world/art production must remain genuinely Unity 2D isometric, even when illustrated objects have visual depth; 3D-looking concept art is not a rendering/asset pipeline decision |
+| P-018 | **Data-driven content/world wherever practical** (owner, 2026-10-24) | Use stable opaque IDs (`district_01`, etc.) independent of editable names, candidate names, descriptions, histories, locations/coordinates, bounds, cultural and visual metadata, referenced authored streets/places; add fields only when used, prefer existing Unity SO + scene workflows. See [World & Content Data Contract](WORLD_CONTENT_DATA_CONTRACT.md) |
+
 ## B. Earlier product decisions retained as direction (not an implementation mandate)
 
 These come from the prior design archive. Unless explicitly overridden, they describe the **intended flavor and likely player-facing behaviors**, not a task list to rebuild every corresponding old subsystem.
@@ -122,7 +125,7 @@ These come from the prior design archive. Unless explicitly overridden, they des
 | O-001 | In-game art style for small characters | Could be pixel art, stylized sprites, another simple treatment; **not finalized** |
 | O-002 | Portrait animation/runtime | **SETTLED by P-022**: Layered 2D sprites with Unity 2D Animation bones |
 | O-003 | Camera geometry and specific zoom | 2D isometric, close and cinematic; Cinemachine 3 approved in P-019; exact zoom/offsets TBD |
-| O-004 | City map extent | Authored connected districts and coherent journeys; city size, districts/count and geography TBD |
+| O-004 | City map extent and precise data | Authored connected districts and coherent journeys; city size, district count/placement and geography TBD. Four-district images/names are unapproved concept proposals; stable `district_01`-style IDs and metadata independence ARE approved |
 | O-005 | On-foot boundary beyond starter area | Home and own neighborhood approved initially; other districts and interiors not promised |
 | O-006 | Home/garage layout and interactions | True walkable home and previously intended garage; content and scene scale TBD |
 | O-007 | Taxi manual controls | Semi-auto intent; whether any direct steering/minor intervention exists TBD |
