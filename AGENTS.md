@@ -2,7 +2,7 @@
 
 **Repository:** MohamedXIV/OutsiderDriver  
 **Engine:** Unity 6 / C# / 2D Isometric, currently **6000.6.0f1** in ProjectSettings/ProjectVersion.txt.  
-**Product authority date:** 2026-10-23.
+**Product authority date:** 2026-10-24.
 
 > **STOP AND READ BEFORE ANY DESIGN OR IMPLEMENTATION.** This is a **clean new game**, not a migration of either previous Outsider Driver repository. Do not infer scope, architecture, feature implementation or artist-approved specifications from old prototypes. The owner explicitly rejected systems fabricated by agents and temporary prototypes promoted into the permanent foundation.
 
@@ -10,10 +10,11 @@
 
 1. [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md) — canonical full game design and boundaries.
 2. [docs/DECISIONS_AND_OPEN_QUESTIONS.md](docs/DECISIONS_AND_OPEN_QUESTIONS.md) — exactly what's approved, historical, suggested, unresolved or rejected.
-3. [docs/SYSTEMS_ARCHITECTURE.md](docs/SYSTEMS_ARCHITECTURE.md) — technical blueprint: VContainer DI, TimeService, GTA traffic bubble, Ink dialogue, UI Toolkit MVP.
-4. [docs/VISUAL_DIRECTION.md](docs/VISUAL_DIRECTION.md) — art intent, user image-reference descriptions, non-decisions.
-5. [docs/ENGINEERING_PRINCIPLES.md](docs/ENGINEERING_PRINCIPLES.md) — clean Unity approach, production rules and performance discipline.
-6. This repository's **actual current project and source**, open issues and PRs, before changing anything.
+3. [docs/WORLD_CONTENT_DATA_CONTRACT.md](docs/WORLD_CONTENT_DATA_CONTRACT.md) — mandatory 2D isometric and data-driven world/content requirements.
+4. [docs/SYSTEMS_ARCHITECTURE.md](docs/SYSTEMS_ARCHITECTURE.md) — technical blueprint: VContainer DI, TimeService, GTA traffic bubble, Ink dialogue, UI Toolkit MVP.
+5. [docs/VISUAL_DIRECTION.md](docs/VISUAL_DIRECTION.md) — art intent, user image-reference descriptions, non-decisions.
+6. [docs/ENGINEERING_PRINCIPLES.md](docs/ENGINEERING_PRINCIPLES.md) — clean Unity approach, production rules and performance discipline.
+7. This repository's **actual current project and source**, open issues and PRs, before changing anything.
 
 If your task touches only one narrow topic, read its relevant sections fully and cross-check the decision status. Do not use this short entry file as a replacement for the full detailed docs.
 
@@ -22,6 +23,14 @@ If your task touches only one narrow topic, read its relevant sections fully and
 Outsider Driver is a **beautiful, colorful, cozy-but-socially-dangerous alien retro-futurist life sandbox**. The player is an illegal human under cover working as a taxi driver among alien societies. The point is to **carry passengers, talk to them or stay quiet, perhaps form friendships or romance, and live/explore freely within the current limited home/neighborhood walking scope while a believable city goes on around them**. Driving is semi-autonomous; the city is authored and 2D isometric. There is **no combat, no procedural generation requirement, no quests, no mandatory main storyline, no sprawling strategy or simulator gameplay**.
 
 Everything implemented should strengthen that experience. If you cannot explain which part of the above a feature improves, it is likely out of scope.
+
+## TWO NON-NEGOTIABLE PROJECT INVARIANTS (owner decision 2026-10-24)
+
+**1. This is a genuine 2D ISOMETRIC game.** Unity 6/C# with 2D sprites, native isometric Tilemaps, authored 2D world objects and 2D scene conventions. Do not turn concept illustrations with depth into a 3D scene, a 3D mesh-first pipeline, a first-person taxi world, or custom projection/rendering infrastructure. Height and multi-level roads can be depicted in 2D with coherent authored navigation. Exact art scale and rendering settings remain OPEN; the **2D isometric requirement is not open**.
+
+**2. Prefer DATA-DRIVEN content wherever practical.** Districts, streets, blocks, buildings, locations, residents and other editable world content should be represented through stable IDs plus authored metadata (location/coordinates/bounds when needed, names and candidate names, descriptions, history/lore, relevant asset references, etc.). **Stable IDs, e.g. `district_01`, are distinct from human-readable/localized names**; renaming a district or rewriting its history should not require editing gameplay rules. Keep identity separate from authored content and separate from runtime mutable state. Use existing simple ScriptableObjects and Unity scene references; no unnecessary generic CMS or invented schema.
+
+**Data-driven != procedural generation.** Locations and world layout are authored. The prior four-district brainstorm and candidate place names are **NOT canon** merely because they appear in images or conversation. See [World & Content Data Contract](docs/WORLD_CONTENT_DATA_CONTRACT.md) for precise rules, examples and known existing-code divergences.
 
 ## Absolute behavior requirements for agents
 
