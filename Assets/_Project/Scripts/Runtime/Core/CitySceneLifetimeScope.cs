@@ -26,6 +26,12 @@ namespace OutsiderDriver.Core
             builder.RegisterComponentInHierarchy<TrafficDirector>();
             builder.Register<RideLifecycleService>(Lifetime.Scoped).As<IRideLifecycleService>();
 
+            var worldRegistry = FindAnyObjectByType<CityWorldRegistry>();
+            if (worldRegistry != null)
+            {
+                builder.RegisterComponent(worldRegistry);
+            }
+
             var neighborhoodLayout = FindAnyObjectByType<HomeNeighborhoodLayout>();
             if (neighborhoodLayout != null)
             {
