@@ -28,13 +28,13 @@ This file is authoritative alongside [GAME_DESIGN.md](GAME_DESIGN.md). It record
 5. Older design documents cannot overrule a newer owner correction; old test assertions do not veto changed game design.
 6. When two current documents genuinely conflict, do not silently choose one and invent rationale. Record the contradiction and ask the owner before implementation.
 
-### Current repository reality as reviewed October 23, 2026
+### Current repository reality as reviewed October 24, 2026
 
-- Repository: [MohamedXIV/OutsiderDriver](https://github.com/MohamedXIV/OutsiderDriver).
-- Unity project editor version: **6000.6.0f1** in ProjectSettings/ProjectVersion.txt.
-- Clean project structure under `Assets/_Project/` with dedicated `OutsiderDriver.Runtime.asmdef` and `OutsiderDriver.Editor.asmdef`.
-- Initial 2D isometric navigation & vehicle movement verified in `Assets/_Project/Scenes/TaxiSandbox.unity`.
-- Documentation completion is not gameplay implementation. Gameplay features exist only as verified in code.
+- Repository: [MohamedXIV/OutsiderDriver](https://github.com/MohamedXIV/OutsiderDriver); Unity version **6000.6.0f1**.
+- C# runtime systems, scene fixture, ScriptableObjects and EditMode tests now exist; this document **does not independently verify the reported 46/46 passing tests** or readiness of a playable production city.
+- **Retired/deleted by owner:** `TaxiSandboxBuilder.cs`, its `.meta`, the otherwise-unused `OutsiderDriver.Editor.asmdef` and associated Editor metadata.
+- `Assets/_Project/Scenes/TaxiSandbox.unity` is **a retained legacy test fixture ONLY**, and is **not listed in Unity EditorBuildSettings**; its names/roads are not production map content. `TaxiTestDriver` is a sandbox harness, while shared road/vehicle components must be assessed individually.
+- `Packages/manifest.json` includes experimental `com.unity.pipeline`; it is not proof the external Unity CLI is installed/connected on any given machine.
 
 ## A. Confirmed current owner decisions (APPROVED)
 
@@ -71,6 +71,8 @@ This file is authoritative alongside [GAME_DESIGN.md](GAME_DESIGN.md). It record
 | P-028 | **Data-driven content/world wherever practical** (owner, 2026-10-24) | Use stable opaque IDs (`district_01`, etc.) independent of editable names, candidate names, descriptions, histories, locations/coordinates, bounds, cultural and visual metadata, referenced authored streets/places; add fields only when used, prefer existing Unity SO + scene workflows. See [World & Content Data Contract](WORLD_CONTENT_DATA_CONTRACT.md) |
 
 | P-029 | **Only alien-language in-world names, even colloquial slang/nicknames** (owner, 2026-10-24) | All diegetic place, institution, landmark, street and building names must come from fictional alien languages and their cultural history. English functional labels are development terms only, never resident-used names. Transliteration for UI readability is allowed; specific alien names are still TBD. |
+
+| P-030 | **Retire the primitive `TaxiSandboxBuilder`; use native Unity / official CLI for authored world editing** (2026-10-24) | Delete the old builder and now-unused editor assembly; never promote, extend or regenerate the old five-node sandbox as production. Preserve `TaxiSandbox.unity` as explicitly **LEGACY / TEST ONLY** until it is intentionally replaced. Favor native 2D Tilemap/Prefab scene authoring and optional Unity CLI + Pipeline live Editor commands, without requiring a monolithic successor. CLI is experimental and must be verified on the operator's machine; saved scenes, data IDs and actual PlayMode behavior remain the source of truth. |
 
 ## B. Earlier product decisions retained as direction (not an implementation mandate)
 
