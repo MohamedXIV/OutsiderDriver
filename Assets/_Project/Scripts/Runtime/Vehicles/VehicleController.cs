@@ -75,6 +75,7 @@ namespace OutsiderDriver.Vehicles
         public bool IsMoving => _currentSpeed > 0.05f;
         public bool IsYielding => _isYielding;
         public bool HasActiveRoute => _activePath.Count > 0 && _currentPathIndex < _activePath.Count;
+        public IReadOnlyList<RoadNode> ActivePath => _activePath;
         public RoadNode CurrentTargetNode => HasActiveRoute ? _activePath[_currentPathIndex] : null;
         public RoadNode DestinationNode => _activePath.Count > 0 ? _activePath[_activePath.Count - 1] : null;
         public Vector3 ForwardDirection => _forwardDirection;
@@ -195,9 +196,60 @@ namespace OutsiderDriver.Vehicles
                 return false;
             }
 
+            return NavigateAlongPath(path);
+        }
+
+        /// <summary>
+        /// Requests a valid alternative route (distinct from the shortest path) to the given destination node.
+        /// Falls back to the primary path only if allowFallbackToPrimary is true.
+        /// </summary>
+        public bool NavigateToAlternative(RoadNode destination, bool allowFallbackToPrimary = false)
+        {
+            if (destination == null) return false;
+
+            if (_roadNetwork == null)
+            {
+                _roadNetwork = FindAnyObjectByType<RoadNetwork>();
+                if (_roadNetwork == null) return false;
+            }
+
+            RoadNode startNode = CurrentTargetNode ?? _roadNetwork.FindNearestNode(transform.position);
+            if (startNode == null) return false;
+
+            var altPath = _roadNetwork.FindAlternativePath(startNode, destination);
+            if (altPath != null && altPath.Count >= 2)
+            {
+                return NavigateAlongPath(altPath);
+            }
+
+            return allowFallbackToPrimary && NavigateTo(destination);
+        }
+
+        /// <summary>
+        /// Starts vehicle navigation along a precomputed sequence of connected RoadNodes.
+        /// </summary>
+        public bool NavigateAlongPath(IReadOnlyList<RoadNode> path)
+        {
+            if (path == null || path.Count == 0)
+            {
+                return false;
+            }
+
             ReleaseReservedNode();
             _activePath.Clear();
-            _activePath.AddRange(path);
+            for (int i = 0; i < path.Count; i++)
+            {
+                if (path[i] != null)
+                {
+                    _activePath.Add(path[i]);
+                }
+            }
+
+            if (_activePath.Count == 0)
+            {
+                return false;
+            }
+
             _currentPathIndex = 0;
             _isPaused = false;
             _isYielding = false;
@@ -288,6 +340,12 @@ namespace OutsiderDriver.Vehicles
             {
                 var other = ActiveVehicles[i];
                 if (other == null || ReferenceEquals(other, this)) continue;
+
+                // Ignore oncoming vehicles traveling in the opposite lane so bidirectional streets never deadlock head-on
+                if (other.HasActiveRoute && Vector3.Dot(dirNormalized, other.ForwardDirection) < -0.25f)
+                {
+                    continue;
+                }
 
                 Vector3 toOther = other.transform.position - myPos;
                 toOther.z = 0f;

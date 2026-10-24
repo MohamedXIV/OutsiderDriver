@@ -5,15 +5,40 @@ using UnityEngine;
 namespace OutsiderDriver.Navigation
 {
     /// <summary>
-    /// Represents a point on the road network (intersection, turn, or landmark pickup/dropoff point).
-    /// Also tracks intersection right-of-way priority and current vehicle reservation to prevent gridlock.
+    /// Modular road piece classification for authored 2D isometric street topology.
+    /// </summary>
+    public enum RoadPieceType
+    {
+        Straight = 0,
+        Corner = 1,
+        TJunction = 2,
+        FourWayIntersection = 3,
+        EndCap = 4,
+        Ramp = 5
+    }
+
+    /// <summary>
+    /// Represents a point on the road network (intersection, turn, road ending, or landmark pickup/dropoff point).
+    /// Tracks piece geometry, elevation level, right-of-way priority, and current vehicle reservation to prevent gridlock.
     /// </summary>
     [SelectionBase]
     [DisallowMultipleComponent]
     public class RoadNode : MonoBehaviour
     {
-        [Tooltip("Optional human-readable name or landmark identifier.")]
+        [Tooltip("Stable opaque node identifier (e.g. node_d01_home_bay).")]
         [SerializeField] private string _nodeId;
+
+        [Tooltip("Stable district ID this road node belongs to (e.g. district_01).")]
+        [SerializeField] private string _districtId = "district_01";
+
+        [Tooltip("Authored modular road piece type at this node.")]
+        [SerializeField] private RoadPieceType _pieceType = RoadPieceType.Straight;
+
+        [Tooltip("Elevation level (0 = ground street, 1 = elevated roadway). Visually overlapping roads on different levels cannot connect without a ramp.")]
+        [SerializeField] private int _elevationLevel = 0;
+
+        [Tooltip("If true, this node is an authored ramp/transition allowing connection between adjacent elevation levels.")]
+        [SerializeField] private bool _isElevationRamp = false;
 
         [Tooltip("Right-of-way rule when vehicles approach this node.")]
         [SerializeField] private RoadNodePriority _priority = RoadNodePriority.MainArtery;
@@ -26,7 +51,36 @@ namespace OutsiderDriver.Navigation
 
         private object _occupyingVehicle;
 
-        public string NodeId => string.IsNullOrEmpty(_nodeId) ? gameObject.name : _nodeId;
+        public string NodeId
+        {
+            get => string.IsNullOrEmpty(_nodeId) ? gameObject.name : _nodeId;
+            set => _nodeId = value;
+        }
+
+        public string DistrictId
+        {
+            get => _districtId;
+            set => _districtId = value;
+        }
+
+        public RoadPieceType PieceType
+        {
+            get => _pieceType;
+            set => _pieceType = value;
+        }
+
+        public int ElevationLevel
+        {
+            get => _elevationLevel;
+            set => _elevationLevel = value;
+        }
+
+        public bool IsElevationRamp
+        {
+            get => _isElevationRamp;
+            set => _isElevationRamp = value;
+        }
+
         public Vector3 Position => transform.position;
         public RoadNodePriority Priority
         {
@@ -41,8 +95,37 @@ namespace OutsiderDriver.Navigation
         }
 
         public IReadOnlyList<RoadNode> ConnectedNodes => _connectedNodes;
-        public bool IsIntersection => _connectedNodes.Count > 1 || _priority == RoadNodePriority.YieldIntersection;
+        public bool IsIntersection => _connectedNodes.Count > 2 || _pieceType == RoadPieceType.TJunction || _pieceType == RoadPieceType.FourWayIntersection || _priority == RoadNodePriority.YieldIntersection;
         public object OccupyingVehicle => _occupyingVehicle;
+
+        public void Configure(
+            string nodeId,
+            RoadNodePriority priority = RoadNodePriority.MainArtery,
+            RoadPieceType pieceType = RoadPieceType.Straight,
+            string districtId = "district_01",
+            int elevationLevel = 0,
+            bool isElevationRamp = false)
+        {
+            _nodeId = nodeId;
+            _priority = priority;
+            _pieceType = pieceType;
+            _districtId = districtId;
+            _elevationLevel = elevationLevel;
+            _isElevationRamp = isElevationRamp;
+        }
+
+        /// <summary>
+        /// Evaluates whether a vehicle can physically transition from this node to the target node
+        /// considering elevation levels and authored ramps.
+        /// </summary>
+        public bool CanTraverseElevationTo(RoadNode target)
+        {
+            if (target == null) return false;
+            if (_elevationLevel == target.ElevationLevel) return true;
+
+            int elevationDelta = Mathf.Abs(_elevationLevel - target.ElevationLevel);
+            return elevationDelta <= 1 && (_isElevationRamp || target.IsElevationRamp || _pieceType == RoadPieceType.Ramp || target.PieceType == RoadPieceType.Ramp);
+        }
 
         public void AddConnection(RoadNode target)
         {
