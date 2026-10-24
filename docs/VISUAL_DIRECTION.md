@@ -81,6 +81,14 @@ The fourth and fifth user images compare **The Docks**, **Market Junction** and 
 - Do not force all architecture into human dimensions, but preserve gameplay readability and approachable navigation.
 - Modular kits are encouraged; the city is **hand-authored**, not procedurally generated.
 
+### Spatial realism and escaping the flat planning-board look (P-031 / P-032 / P-033)
+
+**Approved city authoring scale:** **1 logical ground cell = 1m × 1m**, used consistently for building footprints, garage, cars, lanes, sidewalks and curbs. A regular taxi starts around **2m wide by 4–5m long**; typical travel lanes **3m**, sidewalks **2m each side**. Basic two-way local street **10m total**, four-lane (two each way) arterial **16m total** without parking or medians. See [City Scale & Street Standards](CITY_SCALE_AND_STREET_STANDARDS.md); final art sizes/PPU/camera remain open.
+
+**The October 24 Unity Scene View screenshot** shows a functioning-looking isometric-diamond city *diagram*: narrow 1-cell roads, over-regular flat lots and tiny isolated buildings. It is **not visually accepted as the production city's look**, but it is **not evidence that the fundamental 2D isometric projection is wrong**. Make the same 2D isometric city feel lived in via full-width roads, taller articulated facades, relationship between entrances/curbs/garages, intersections, local setback variation and carefully chosen props. Keep stylization rather than copying a real city as photoreal 3D.
+
+The native **Isometric Z as Y Grid + Tile Palette** is the preferred construction/inspection view. The grey general Scene View background lattice may remain orthogonal while the actual selected Tilemap is isometric. Do not introduce custom perspective or a custom editor-grid renderer for this reason.
+
 ### Streets and vehicles
 
 - Streets may use teal, faded ochre, mineral cream, blue-gray, terracotta and other reasoned district colors. Grime, repairs and paint wear distinguish materials.
@@ -154,7 +162,7 @@ Desirable qualities:
 | In-world character sprite style, pixel density, resolution | OPEN |
 | Portrait art direction, animation and pipeline | OPEN |
 | Exact 2D isometric camera angle / zoom / occlusion technique | OPEN |
-| Final map shape, district names, density and scale | OPEN |
+| Final map shape, district names, density and **extent** | OPEN; physical ground cell and baseline road widths are approved by P-031 |
 | Day/night and weather depth | OPEN |
 | Final in-game UI layout and typography | OPEN |
 | Whether the original reference images can be versioned in the repository | OPEN |
