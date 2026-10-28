@@ -1,13 +1,13 @@
 # Outsider Driver — Canonical Game Design & Game DNA
 
 **Status:** Canonical product-intent specification for the clean Unity project.  
-**Decision cutoff:** 2026-10-23.  
+**Decision cutoff:** 2026-10-28.  
 **Authority:** The owner's latest explicit decisions in the October 2026 project discussion supersede conflicting design or implementation choices in both prior repositories.  
 **Companions:** [Decision Register](DECISIONS_AND_OPEN_QUESTIONS.md), [Visual Direction](VISUAL_DIRECTION.md), [Engineering Principles](ENGINEERING_PRINCIPLES.md), and root [AGENTS.md](../AGENTS.md).
 
-> **Read this first:** This file describes the game we intend to make, not a claim that its features are implemented. The new Unity repository currently contains the Unity 2D project template, not a migrated game. Never infer completed systems from a design paragraph, earlier prototype screenshots, or historical test results.
+> **Read this first:** This file describes product intent, not an implementation report. The Unity repository now contains production city, vehicle, road, social and ride-system foundations; a systemic playable shift is not yet verified. Never infer completed systems from a design paragraph, earlier prototype screenshots, or historical test results.
 >
-> **Design philosophy:** Outsider Driver is a small-in-mechanics, rich-in-experience, freeform life-in-an-alien-city game. Driving people, talking to people, possibly getting to know them, and inhabiting a beautiful, living place are enough. It is not a combat RPG, mission game, vehicle-physics simulation, city-builder, procedural sandbox generator, or population-research platform.
+> **Design philosophy:** Outsider Driver is a small-in-mechanics, rich-in-experience, freeform life-in-an-alien-city game. Driving people, talking to people, possibly getting to know them, and inhabiting a beautiful, living place are enough. It is not a combat RPG, scripted mission campaign, vehicle-physics simulator, city-builder, or population-research platform. **Procedural/systemic taxi demand and freeform open-world gameplay ARE core pillars (P-034/P-035).**
 
 ## 1. One-sentence premise and player fantasy
 
@@ -27,7 +27,7 @@ The city is not organized around the protagonist. People have lives before and a
 
 ### Explicit non-goals
 
-No combat. No combat progression. No quest chains or mandatory missions. No main quest or required scripted plot progression. No procedural generation of the city or content as a product pillar. No forced story sequence of handcrafted passengers. No full-city on-foot open world in the first scope. No dedicated hardcore manual driving simulation. No grand-strategy economics, politics, or per-citizen cognition. No giant generic AI framework, one LLM per NPC, or reliance on always-online generation. No base building or compulsory dating game.
+No combat. No combat progression. No quest chains or mandatory missions. No main quest or required scripted plot progression. **Procedural/systemic ride and ordinary-job opportunities ARE core gameplay (P-034); no scripted playlist.** Exact city-*geometry* generation versus authored/hybrid remains OPEN (O-030). No forced story sequence of handcrafted passengers. No full-city on-foot open world in the first scope. No dedicated hardcore manual driving simulation. No grand-strategy economics, politics, or per-citizen cognition. No giant generic AI framework, one LLM per NPC, or reliance on always-online generation. No base building or compulsory dating game.
 
 These exclusions are product constraints, not deferred promises.
 
@@ -37,7 +37,7 @@ The new project is **Unity 6, C#, native 2D isometric/axonometric**. Its current
 
 **Mandatory representation clarification (owner, 2026-10-24):** **This game is 2D ISOMETRIC.** Attractive images resembling 3D dioramas or perspective city renders are art direction, not authorization to create 3D game worlds or a 3D-first asset/renderer architecture. Unity-native 2D scene assets remain the basis for the city, vehicles, walking, interiors and visual layering. The exact art technique and camera constants remain undecided.
 
-**Mandatory data-driven rule (owner, 2026-10-24):** Authored districts, locations, roads, buildings, residents and content should be **data-driven wherever practical**. Preserve stable IDs such as `district_01` separately from editable human-facing names, candidate names, metadata, lore and spatial information. District positions, boundaries, landmarks and links may be data or scene-authored spatial references with a single authority; do not hardcode provisional names as identities or procedurally generate the city. See [World & Content Data Contract](WORLD_CONTENT_DATA_CONTRACT.md).
+**Mandatory data-driven rule (owner, 2026-10-24):** Authored districts, locations, roads, buildings, residents and content should be **data-driven wherever practical**. Preserve stable IDs such as `district_01` separately from editable human-facing names, candidate names, metadata, lore and spatial information. District positions, boundaries, landmarks and links may be data or scene-authored spatial references with a single authority; do not hardcode provisional names as identities. The **current** spatial world is authored; procedural city-*geometry* design is not yet decided (O-030). **Runtime ride opportunities must be generated systemically** rather than being hardcoded episodes. See [World & Content Data Contract](WORLD_CONTENT_DATA_CONTRACT.md).
 
 **Camera:** A close, readable, cinematic isometric view of the taxi and city. Smooth camera behavior should prioritize appreciating the road and understanding travel, not a distant city-builder view. The exact angle, zoom levels, framing, and UI presentation are **not finalized**.
 
@@ -58,7 +58,7 @@ There are four mutually reinforcing activities, rather than four giant software 
 - A passenger may ask to avoid an area, change destination, make a stop, or express a preference. It is a **situation between people**, not a mission objective or quest checklist.
 - Ride length comes from a credible, adequately scaled authored city, **not** artificially stretching a five-point graph's timer.
 
-**Important distinction:** Passenger ride requests are jobs in the ordinary everyday-life sense, **not authored missions**. The game can contain individually written special dialogue without organizing progression as a mandatory sequence of missions.
+**Important distinction (P-034):** Passenger ride requests are **procedurally generated everyday work**, **not authored missions or a fixed sequence**. World time, passenger availability, viable pickup/dropoff sites and player access create eligible offers. Authored reusable character/dialogue content can contribute without becoming a scripted mission ladder. See [Systemic Sandbox Contract](SYSTEMIC_OPEN_WORLD_AND_RIDE_DEMAND.md).
 
 ### B. Converse — or choose not to
 
@@ -186,7 +186,7 @@ These are proposed engineering principles, **not a demand to implement a new sim
 
 ## 8. Driving and map design boundaries
 
-The city is **authored**, with meaningful connected streets. Roads can be long, curved, multi-level, and interrupted by safe junctions or service stops. Building a believable setting is part of pacing: a journey must feel long enough to converse and enjoy the view.
+The current city **geometry is authored**, with meaningful connected streets; future procedurally authored/generated map geometry versus hybrid remains an open design question (O-030), independent of the **approved procedural job system**. Roads can be long, curved, multi-level, and interrupted by safe junctions or service stops. Building a believable setting is part of pacing: a journey must feel long enough to converse and enjoy the view.
 
 - **Semi-autonomous taxi:** the driver gives direction, route preference or waypoint, and the car follows a valid route.
 - **Route choice:** alternative connected streets have real distance/time/context. The map need not be a full-fledged Google Maps clone.
