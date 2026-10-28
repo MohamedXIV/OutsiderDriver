@@ -51,8 +51,8 @@ namespace OutsiderDriver.Data
         [Min(0)]
         [SerializeField] private int _basePickupFare = 15;
         [Min(0f)]
+        [Tooltip("Credits charged per logical ground metre.")]
         [SerializeField] private float _creditsPerUnitDistance = 2.0f;
-
         [Header("Authored Links (Stable IDs)")]
         [Tooltip("Stable WorldLocationSO IDs belonging to this district (e.g. location_001).")]
         [SerializeField] private List<string> _locationIds = new List<string>();
@@ -135,7 +135,7 @@ namespace OutsiderDriver.Data
         }
 
         /// <summary>
-        /// Calculates the raw fare for a ride of the given world distance within this district,
+        /// Calculates the raw fare for a ride of the given logical ground-metre distance,
         /// scaled by an optional passenger fare multiplier.
         /// </summary>
         public int CalculateEstimatedFare(float travelDistance, float passengerFareMultiplier = 1.0f)

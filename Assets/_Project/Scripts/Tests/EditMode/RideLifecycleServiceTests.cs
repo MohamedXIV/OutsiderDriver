@@ -134,6 +134,27 @@ namespace OutsiderDriver.Tests.EditMode
             Assert.Greater(rideService.ActiveRequest.QuotedBaseFare, originalFare);
         }
 
+        [Test]
+        public void AcceptHail_PickupProximity_UsesGroundMetresAndLaneOffset()
+        {
+            var network = CreateLinearRoadNetwork(out RoadNode nodeStart, out RoadNode nodePickup, out RoadNode nodeDropoff);
+            nodePickup.LaneOffsetMeters = 1.5f;
+
+            Vector2 pickupGround = network.GroundProjection.WorldToGround(nodePickup.Position);
+            Vector2 laneWorld = network.GroundProjection.GroundToWorld(new Vector2(pickupGround.x, pickupGround.y + 1.5f));
+            var taxi = CreateTaxi(new Vector3(laneWorld.x, laneWorld.y, nodePickup.Position.z), network);
+            var passenger = CreatePassenger("res_lane", "Lane", fareMultiplier: 1.0f, tipGenerosity: 0f);
+
+            using var rideService = new RideLifecycleService(network, taxi, new PlayerStateService());
+
+            Assert.IsTrue(rideService.TryOfferHail(passenger, nodePickup, nodeDropoff));
+            Assert.IsTrue(rideService.AcceptHail());
+            Assert.AreEqual(
+                RidePhase.AwaitingBoarding,
+                rideService.CurrentPhase,
+                "A 1.5 m lane-offset stop beside the pickup node must count as at-pickup in ground metres.");
+        }
+
         private static void SimulateUntilStopped(VehicleController taxi, int maxSteps = 200)
         {
             for (int i = 0; i < maxSteps && taxi.HasActiveRoute; i++)
@@ -144,12 +165,19 @@ namespace OutsiderDriver.Tests.EditMode
 
         private RoadNetwork CreateLinearRoadNetwork(out RoadNode nodeA, out RoadNode nodeB, out RoadNode nodeC)
         {
+            var gridGo = CreateTrackedObject("IsometricGrid", Vector3.zero);
+            var grid = gridGo.AddComponent<Grid>();
+            grid.cellLayout = GridLayout.CellLayout.IsometricZAsY;
+            grid.cellSize = new Vector3(1f, 0.5f, 1f);
+            grid.cellSwizzle = GridLayout.CellSwizzle.XYZ;
+
             var networkGo = CreateTrackedObject("RoadNetwork", Vector3.zero);
             var network = networkGo.AddComponent<RoadNetwork>();
+            network.ConfigureGrid(grid);
 
-            nodeA = CreateNode(networkGo.transform, "NodeA", new Vector3(0f, 0f, 0f));
-            nodeB = CreateNode(networkGo.transform, "NodeB", new Vector3(4f, 0f, 0f));
-            nodeC = CreateNode(networkGo.transform, "NodeC", new Vector3(10f, 0f, 0f));
+            nodeA = CreateNode(networkGo.transform, grid, "NodeA", 0, 0);
+            nodeB = CreateNode(networkGo.transform, grid, "NodeB", 4, 0);
+            nodeC = CreateNode(networkGo.transform, grid, "NodeC", 10, 0);
 
             nodeA.AddConnection(nodeB);
             nodeB.AddConnection(nodeA);
@@ -168,9 +196,9 @@ namespace OutsiderDriver.Tests.EditMode
             return go;
         }
 
-        private RoadNode CreateNode(Transform parent, string name, Vector3 position)
+        private RoadNode CreateNode(Transform parent, Grid grid, string name, int cellX, int cellY)
         {
-            var go = CreateTrackedObject(name, position);
+            var go = CreateTrackedObject(name, grid.CellToWorld(new Vector3Int(cellX, cellY, 0)));
             go.transform.SetParent(parent);
             return go.AddComponent<RoadNode>();
         }

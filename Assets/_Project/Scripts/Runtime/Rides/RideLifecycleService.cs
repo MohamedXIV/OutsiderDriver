@@ -17,9 +17,7 @@ namespace OutsiderDriver.Rides
     /// </summary>
     public sealed class RideLifecycleService : IRideLifecycleService, IDisposable
     {
-        private const int DefaultBasePickupFare = 15;
-        private const float DefaultCreditsPerUnitDistance = 2.0f;
-        private const float PickupProximityThreshold = 0.5f;
+        private const float MinimumPickupProximityMeters = 1.0f;
 
         private readonly RoadNetwork _roadNetwork;
         private readonly VehicleController _playerTaxi;
@@ -84,26 +82,17 @@ namespace OutsiderDriver.Rides
                 return false;
             }
 
-            if (_roadNetwork == null)
+            if (!RideFareCalculator.TryQuote(_roadNetwork, passenger, pickupNode, destinationNode, district, out var quote))
             {
                 return false;
             }
-
-            var path = _roadNetwork.FindPath(pickupNode, destinationNode);
-            if (path == null || path.Count < 2)
-            {
-                return false;
-            }
-
-            float plannedDistance = CalculatePathDistance(path);
-            int quotedFare = CalculateFare(plannedDistance, passenger.FareMultiplier, district);
 
             _activeRequest = new RideRequest(
                 passenger: passenger,
                 pickupNode: pickupNode,
                 destinationNode: destinationNode,
-                plannedDistance: plannedDistance,
-                quotedBaseFare: quotedFare,
+                plannedDistance: quote.DistanceMeters,
+                quotedBaseFare: quote.QuotedFare,
                 district: district);
 
             SetPhase(RidePhase.HailOffered);
@@ -134,10 +123,14 @@ namespace OutsiderDriver.Rides
 
             OnHailAccepted?.Invoke(_activeRequest);
 
-            // Check if the taxi is already stationed at the pickup node
-            Vector3 offset = _playerTaxi.transform.position - _activeRequest.PickupNode.Position;
-            offset.z = 0f;
-            if (offset.sqrMagnitude <= PickupProximityThreshold * PickupProximityThreshold)
+            // Check if the taxi is already at the pickup approach in ground metres.
+            // Lane offset is included so a curb-side stop beside the node still counts.
+            float pickupDistanceMeters = _roadNetwork.GroundProjection.Distance(
+                _playerTaxi.transform.position,
+                _activeRequest.PickupNode.Position);
+            float pickupProximityMeters = GetPickupProximityMeters(_activeRequest.PickupNode);
+
+            if (pickupDistanceMeters <= pickupProximityMeters)
             {
                 SetPhase(RidePhase.AwaitingBoarding);
                 return true;
@@ -195,8 +188,10 @@ namespace OutsiderDriver.Rides
                 return false;
             }
 
-            float additionalDistance = CalculatePathDistance(newPath);
-            int updatedFare = CalculateFare(
+            float additionalDistance = RideFareCalculator.CalculateGroundDistance(
+                _roadNetwork.GroundProjection,
+                newPath);
+            int updatedFare = RideFareCalculator.CalculateFare(
                 _activeRequest.PlannedDistance + additionalDistance,
                 _activeRequest.Passenger.FareMultiplier,
                 _activeRequest.District);
@@ -293,37 +288,17 @@ namespace OutsiderDriver.Rides
             }
         }
 
+        private static float GetPickupProximityMeters(RoadNode pickupNode)
+        {
+            float laneOffset = pickupNode != null ? pickupNode.LaneOffsetMeters : 0f;
+            return Mathf.Max(MinimumPickupProximityMeters, laneOffset + 1.0f);
+        }
+
         private void SetPhase(RidePhase nextPhase)
         {
             if (_currentPhase == nextPhase) return;
             _currentPhase = nextPhase;
             OnPhaseChanged?.Invoke(_currentPhase);
-        }
-
-        private static float CalculatePathDistance(IReadOnlyList<RoadNode> path)
-        {
-            float distance = 0f;
-            for (int i = 0; i < path.Count - 1; i++)
-            {
-                if (path[i] != null && path[i + 1] != null)
-                {
-                    Vector3 segment = path[i + 1].Position - path[i].Position;
-                    segment.z = 0f;
-                    distance += segment.magnitude;
-                }
-            }
-            return distance;
-        }
-
-        private static int CalculateFare(float distance, float passengerMultiplier, DistrictConfigSO district)
-        {
-            if (district != null)
-            {
-                return district.CalculateEstimatedFare(distance, passengerMultiplier);
-            }
-
-            float raw = (DefaultBasePickupFare + distance * DefaultCreditsPerUnitDistance) * Mathf.Max(0.1f, passengerMultiplier);
-            return Mathf.RoundToInt(raw);
         }
     }
 }
