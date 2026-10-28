@@ -8,12 +8,14 @@
 
 - **ACTUAL 2D ISOMETRIC:** All city, character, taxi and neighborhood visual world-building must remain Unity **2D** isometric, even if artwork conveys volume. 3D dioramas in image references are not 3D runtime requirements. Exact 2D sort/camera/art specifications are still open.
 - **DATA-DRIVEN BY DEFAULT WHEN PRACTICAL:** Represent district/location/street/resident identity with stable IDs (e.g. `district_01`), not temporary descriptive names. Place names, proposed alternate names, descriptions, cultural backstory, authored world positions/bounds, art and relevant relationships should be content metadata or scene-authored references rather than hardcoded in logic. Reuse existing ScriptableObjects and Unity-authored scenes, with one source of truth per property.
-- **NO PROCEDURAL CITY REQUIREMENT:** Data-driven means **editable, deliberately authored** content, not automatic map/lore generation. Do not erect a universal schema/registry/authoring platform in the name of flexibility; expand the current simple data types only as content requires.
+- **SYSTEMIC PROCEDURAL WORK IS REQUIRED (P-034):** Generate coherent taxi requests/jobs from grounded world, passenger, location and clock state. This is NOT a scripted passenger playlist. Current map geometry remains authored; any procedural map-generation/hybrid architecture is an OPEN separate decision (O-030). Do not erect a universal simulation or content authoring platform for this.
 - **Legacy quarantine:** `TaxiSandboxBuilder.cs` and its unused Editor assembly were deleted (owner decision 2026-10-24). `TaxiSandbox.unity` is a legacy test fixture **only**, not a production template; do not extend its five-node placeholder graph. `TaxiTestDriver` is a separate temporary harness. Review actual usage before retiring shared runtime types.
 - **PHYSICAL CITY SCALE (P-031/P-032/P-033):** Use **1 logical meter per ground-plan cell** across all authored roads, cars, sidewalks, lots and buildings. Baselines: 2m-wide, 4–5m-long taxi; 3m lane; 2m sidewalk on each side; 10m basic two-way street; 16m two-lanes-each-way arterial. Keep full-width 2D isometric tile surfaces separate from sparse lane-aware, uniquely identified RoadNodes. Current scene/graph was authored before this decision: DO NOT treat it as scaled correctly already; calibrate ground-grid projection, route lanes, vehicle motion, PPU and camera in Unity with tests. Do not mistake the default orthogonal Scene View grey background grid for the selected isometric Tilemap overlay. See [City Scale & Street Standards](CITY_SCALE_AND_STREET_STANDARDS.md).
 - **Unity scene authoring:** Use native Tile Palette / Grid / Tilemaps and authored scene/prefab data. For ad hoc repetitive edits, the official Unity CLI with the existing `com.unity.pipeline` package can drive a connected Editor and evaluate C# live; it does **not** eliminate Editor/session requirements or the need to save, validate and playtest assets. No replacement monolithic `CityBuilder`.
 
 Canonical detailed rules: [World & Content Data Contract](WORLD_CONTENT_DATA_CONTRACT.md).
+
+**Systemic sandbox contract:** [Systemic Open-World & Ride Demand](SYSTEMIC_OPEN_WORLD_AND_RIDE_DEMAND.md). Procedural jobs are approved; procedural world geography remains open.
 
 ## 1. Start clean, not by porting the mistakes
 
@@ -37,7 +39,7 @@ That does **not** demand a huge grand architecture before playable functionality
 3. Expand through intentional extensions when the next player-facing need exists.
 4. If a temporary experiment is made to answer an isolated question, clearly label it disposable and remove it before production work depends on it.
 5. No agent may call a temporary scene, debug dashboard or one-route fixture "the production architecture" by default.
-6. No mandatory fixed sample taxi ride becomes the canonical game loop.
+6. No mandatory fixed sample taxi ride becomes the canonical game loop; production job opportunities MUST arise procedurally from world conditions.
 
 **Small amount of functioning production code > large scaffolding > endless technical prototypes.**
 
@@ -121,7 +123,7 @@ Do not optimize by violating social/world consistency, deleting persistent peopl
 Unknown design details belong in [Decision Register](DECISIONS_AND_OPEN_QUESTIONS.md). An agent must not select and ship, without approval, decisions such as:
 
 - combat, quests, story progression;
-- a complete procedural content pipeline;
+- a monolithic procedural world-map generator or general arbitrary-lore generation engine (procedural ride demand itself is approved);
 - all-city foot exploration;
 - exact manual driving mechanics;
 - NPC count/AI tech stack and simulation cadence;
