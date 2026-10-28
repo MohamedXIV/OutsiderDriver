@@ -18,6 +18,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: ca412764880fc1346bf83b50e4546b4e, type: 2}
   - {fileID: 11400000, guid: 6979814d5e44bf043a2ca4966135df27, type: 2}
   _minimumRideDistanceMeters: 25
-  _offerLifetimeMinutes: 12
+  _offerLifetimeMinutes: 30
+  _maxVisibleOffers: 3
   _declineCooldownMinutes: 20
   _randomSeed: 0

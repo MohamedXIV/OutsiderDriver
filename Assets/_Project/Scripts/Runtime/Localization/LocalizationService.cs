@@ -162,6 +162,76 @@ namespace OutsiderDriver.Localization
             RegisterString(TableUI, "hud_translated_badge", "en", "Translated");
             RegisterString(TableUI, "hud_translated_badge", "ar", "مترجم");
 
+            // --- Taxi Shift HUD (Placeholder currency label; currency remains OPEN) ---
+            RegisterString(TableUI, "hud_taxi_shift_title", "en", "Taxi Shift");
+            RegisterString(TableUI, "hud_taxi_shift_title", "ar", "وردية الأجرة");
+
+            RegisterString(TableUI, "hud_status_offers", "en", "{0} fares waiting");
+            RegisterString(TableUI, "hud_status_offers", "ar", "{0} رحلات بانتظارك");
+
+            RegisterString(TableUI, "hud_status_idle", "en", "Waiting for a fare");
+            RegisterString(TableUI, "hud_status_idle", "ar", "بانتظار راكب");
+
+            RegisterString(TableUI, "hud_status_no_work", "en", "No fares right now");
+            RegisterString(TableUI, "hud_status_no_work", "ar", "لا توجد رحلات الآن");
+
+            RegisterString(TableUI, "hud_pickup_row", "en", "Pickup · {0}");
+            RegisterString(TableUI, "hud_pickup_row", "ar", "الالتقاط · {0}");
+
+            RegisterString(TableUI, "hud_destination_row", "en", "Destination · {0}");
+            RegisterString(TableUI, "hud_destination_row", "ar", "الوجهة · {0}");
+
+            RegisterString(TableUI, "hud_distance_m", "en", "{0} m");
+            RegisterString(TableUI, "hud_distance_m", "ar", "{0} م");
+
+            RegisterString(TableUI, "hud_street_stop", "en", "{0} street stop");
+            RegisterString(TableUI, "hud_street_stop", "ar", "موقف {0}");
+
+            RegisterString(TableUI, "hud_accept_offer", "en", "Accept");
+            RegisterString(TableUI, "hud_accept_offer", "ar", "قبول");
+
+            RegisterString(TableUI, "hud_decline_offer", "en", "Decline");
+            RegisterString(TableUI, "hud_decline_offer", "ar", "رفض");
+
+            RegisterString(TableUI, "hud_board_passenger", "en", "Board passenger");
+            RegisterString(TableUI, "hud_board_passenger", "ar", "اصطحاب الراكب");
+
+            RegisterString(TableUI, "hud_collect_fare", "en", "Collect fare");
+            RegisterString(TableUI, "hud_collect_fare", "ar", "استلام الأجرة");
+
+            RegisterString(TableUI, "hud_active_fare", "en", "Active fare");
+            RegisterString(TableUI, "hud_active_fare", "ar", "الرحلة الجارية");
+
+            RegisterString(TableUI, "hud_phase_enroute", "en", "En route to pickup");
+            RegisterString(TableUI, "hud_phase_enroute", "ar", "في الطريق إلى نقطة الالتقاط");
+
+            RegisterString(TableUI, "hud_phase_boarding", "en", "Passenger waiting at the curb");
+            RegisterString(TableUI, "hud_phase_boarding", "ar", "الراكب ينتظر عند الرصيف");
+
+            RegisterString(TableUI, "hud_phase_in_transit", "en", "Driving to destination");
+            RegisterString(TableUI, "hud_phase_in_transit", "ar", "في الطريق إلى الوجهة");
+
+            RegisterString(TableUI, "hud_phase_arrived", "en", "Arrived — collect the fare");
+            RegisterString(TableUI, "hud_phase_arrived", "ar", "وصلت — استلم الأجرة");
+
+            RegisterString(TableUI, "hud_offer_unavailable", "en", "That fare is no longer available.");
+            RegisterString(TableUI, "hud_offer_unavailable", "ar", "هذه الرحلة لم تعد متاحة.");
+
+            RegisterString(TableUI, "hud_ride_start_failed", "en", "That fare could not start. Try another.");
+            RegisterString(TableUI, "hud_ride_start_failed", "ar", "تعذر بدء الرحلة. جرّب رحلة أخرى.");
+
+            RegisterString(TableUI, "hud_fare_collected", "en", "Fare collected: {0}");
+            RegisterString(TableUI, "hud_fare_collected", "ar", "تم تحصيل {0}");
+
+            RegisterString(TableUI, "hud_ride_cancelled", "en", "Ride ended without payment.");
+            RegisterString(TableUI, "hud_ride_cancelled", "ar", "انتهت الرحلة دون دفع.");
+
+            RegisterString(TableUI, "hud_no_work_title", "en", "No fares right now");
+            RegisterString(TableUI, "hud_no_work_title", "ar", "لا توجد رحلات الآن");
+
+            RegisterString(TableUI, "hud_no_work_hint", "en", "New requests arrive as the city moves through its day.");
+            RegisterString(TableUI, "hud_no_work_hint", "ar", "تصل الطلبات الجديدة مع تقدم المدينة في يومها.");
+
             // --- Everyday Domestic & Neighborhood Prompts ---
             RegisterString(TablePrompts, "prompt_board_taxi", "en", "Board / Drive Taxi");
             RegisterString(TablePrompts, "prompt_board_taxi", "ar", "ركوب سيارة الأجرة");

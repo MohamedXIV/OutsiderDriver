@@ -7,6 +7,7 @@ using OutsiderDriver.Navigation;
 using OutsiderDriver.Player;
 using OutsiderDriver.Rides;
 using OutsiderDriver.UI.Dialogue;
+using OutsiderDriver.UI.TaxiShift;
 using OutsiderDriver.Vehicles;
 using OutsiderDriver.Visuals.Portraits;
 using OutsiderDriver.World;
@@ -72,6 +73,13 @@ namespace OutsiderDriver.Core
             {
                 builder.RegisterComponent(dialogueView).As<IDialogueView>();
                 builder.RegisterEntryPoint<DialoguePresenter>(Lifetime.Scoped);
+            }
+
+            var taxiShiftView = FindAnyObjectByType<TaxiShiftView>();
+            if (taxiShiftView != null)
+            {
+                builder.RegisterComponent(taxiShiftView).As<ITaxiShiftView>();
+                builder.RegisterEntryPoint<TaxiShiftPresenter>(Lifetime.Scoped);
             }
         }
     }

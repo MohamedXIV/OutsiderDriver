@@ -53,62 +53,139 @@ namespace OutsiderDriver.Tests.EditMode
             Assert.GreaterOrEqual(eveningPassengers.Count, 2, "At 19:00 two different authored residents are available.");
             Assert.IsFalse(morningPassengers.SetEquals(eveningPassengers), "Available work must change with world time.");
 
-            world.Time.SetTime(new WorldTime(day: 1, hour: 3, minute: 0));
+            world.Time.SetTime(new WorldTime(day: 2, hour: 3, minute: 0));
             Assert.IsEmpty(service.GetEligibleOffers(), "No eligible authored work at 03:00.");
             Assert.IsFalse(service.TryEnsureOffer(out _));
             Assert.IsNull(service.CurrentOffer);
         }
 
         [Test]
-        public void Decline_SuppressesTheExactJobAndReplenishesAfterCooldown()
+        public void OfferBoard_KeepsStableIdentitiesAcrossEnumerationAndRefresh()
         {
             var world = CreateDemandWorld();
-            world.Time.SetTime(new WorldTime(day: 1, hour: 9, minute: 0));
+            world.Time.SetTime(new WorldTime(day: 1, hour: 19, minute: 0));
             var service = CreateService(world, seedOverride: 7);
 
-            var declinedKeys = new HashSet<string>();
-            while (service.TryEnsureOffer(out var offer))
-            {
-                Assert.IsTrue(service.DeclineOffer(offer));
-                declinedKeys.Add(offer.Key);
-                Assert.LessOrEqual(declinedKeys.Count, 10, "Decline loop should terminate.");
-            }
+            var first = service.GetEligibleOffers();
+            Assert.AreEqual(2, first.Count, "The evening board exposes two distinct residents.");
+            var firstIds = CollectOfferIds(first);
 
-            Assert.AreEqual(3, declinedKeys.Count, "All three morning opportunities can be declined exactly once.");
-            Assert.IsNull(service.CurrentOffer);
-            Assert.IsFalse(service.TryEnsureOffer(out _), "All declined jobs are cooling down, so no work is available yet.");
+            var second = service.GetEligibleOffers();
+            CollectionAssert.AreEqual(firstIds, CollectOfferIds(second), "Repeated enumeration must not mint new offer identities.");
 
-            world.Time.SetTime(new WorldTime(day: 1, hour: 9, minute: 21));
-            Assert.IsTrue(service.TryEnsureOffer(out var replenished));
-            Assert.IsNotNull(replenished);
-
-            var replenishedKeys = new HashSet<string>();
-            var afterCooldown = service.GetEligibleOffers();
-            for (int i = 0; i < afterCooldown.Count; i++)
-            {
-                replenishedKeys.Add(afterCooldown[i].Key);
-            }
-
-            Assert.IsTrue(replenishedKeys.Overlaps(declinedKeys), "After cooldown, previously declined ordinary work can replenish.");
-            Assert.AreEqual(3, replenishedKeys.Count);
+            service.RefreshOffers();
+            CollectionAssert.AreEqual(firstIds, CollectOfferIds(service.GetEligibleOffers()), "Refreshing a populated board must not replace displayed offers.");
         }
 
         [Test]
-        public void IgnoredOffer_ExpiresAndIsReplacedWithoutReplayingTheSameJob()
+        public void ReserveRelease_RevivesTheExactOffer_AndOnlyOneReservationIsAllowed()
+        {
+            var world = CreateDemandWorld();
+            world.Time.SetTime(new WorldTime(day: 1, hour: 19, minute: 0));
+            var service = CreateService(world, seedOverride: 7);
+
+            var board = service.GetEligibleOffers();
+            Assert.AreEqual(2, board.Count);
+            var chosen = board[0];
+            var other = board[1];
+
+            Assert.IsTrue(service.TryReserveOffer(chosen));
+            Assert.IsFalse(service.TryReserveOffer(chosen), "The same displayed offer must not be reserved twice.");
+            Assert.IsFalse(service.TryReserveOffer(other), "Only one offer may be reserved at a time.");
+            Assert.IsFalse(ContainsOfferId(service.GetEligibleOffers(), chosen.OfferId));
+            Assert.IsFalse(service.ReleaseReservedOffer(other), "A different offer must not release the reservation.");
+
+            Assert.IsTrue(service.ReleaseReservedOffer(chosen));
+            var restored = service.GetEligibleOffers();
+            Assert.IsTrue(ContainsOfferId(restored, chosen.OfferId), "A failed activation must restore the exact presented offer.");
+            Assert.IsTrue(ContainsOfferId(restored, other.OfferId));
+        }
+
+        [Test]
+        public void ConsumedOffer_CannotBeAcceptedOrReservedTwice()
+        {
+            var world = CreateDemandWorld();
+            world.Time.SetTime(new WorldTime(day: 1, hour: 19, minute: 0));
+            var service = CreateService(world, seedOverride: 7);
+
+            var board = service.GetEligibleOffers();
+            var chosen = board[0];
+            var other = board[1];
+
+            Assert.IsTrue(service.TryReserveOffer(chosen));
+            Assert.IsTrue(service.ConsumeReservedOffer(chosen));
+            Assert.IsFalse(service.ConsumeReservedOffer(chosen));
+            Assert.IsFalse(service.TryReserveOffer(chosen));
+            Assert.IsFalse(service.AcceptOffer(chosen), "A consumed offer must never start a second ride.");
+            Assert.IsTrue(ContainsOfferId(service.GetEligibleOffers(), other.OfferId));
+        }
+
+        [Test]
+        public void ExpiredOffer_IsNotSelectable_AndTheBoardReplenishesOnlyAfterCooldown()
         {
             var world = CreateDemandWorld();
             world.Time.SetTime(new WorldTime(day: 1, hour: 9, minute: 0));
             var service = CreateService(world, seedOverride: 7);
 
-            Assert.IsTrue(service.TryEnsureOffer(out var first));
-            string expiredKey = first.Key;
+            Assert.IsTrue(service.TryEnsureOffer(out var ignored));
+            string ignoredId = ignored.OfferId;
 
             world.Time.SetTime(new WorldTime(day: 1, hour: 9, minute: 13));
             Assert.IsTrue(service.ExpireIfNeeded());
             Assert.IsNull(service.CurrentOffer);
+            Assert.IsFalse(service.ExpireIfNeeded());
+            Assert.IsEmpty(service.GetEligibleOffers());
+            Assert.IsFalse(service.TryReserveOffer(ignored), "An expired displayed offer must not be selectable.");
+            Assert.IsFalse(service.AcceptOffer(ignored));
 
-            Assert.IsTrue(service.TryEnsureOffer(out var replacement));
-            Assert.AreNotEqual(expiredKey, replacement.Key, "The expired exact job must not immediately replay.");
+            world.Time.SetTime(new WorldTime(day: 1, hour: 9, minute: 34));
+            Assert.IsTrue(service.TryEnsureOffer(out var replacement), "After expiry cooldown, ordinary work replenishes.");
+            Assert.AreNotEqual(ignoredId, replacement.OfferId);
+            Assert.AreEqual(ignored.Passenger.PassengerId, replacement.Passenger.PassengerId);
+        }
+
+        [Test]
+        public void Decline_SuppressesThePassengerAndReplenishesAfterCooldown()
+        {
+            var world = CreateDemandWorld();
+            world.Time.SetTime(new WorldTime(day: 1, hour: 9, minute: 0));
+            var service = CreateService(world, seedOverride: 7);
+
+            Assert.IsTrue(service.TryEnsureOffer(out var declined));
+            Assert.IsTrue(service.DeclineOffer(declined));
+            Assert.IsFalse(service.DeclineOffer(declined), "A declined offer must leave the board exactly once.");
+            Assert.IsNull(service.CurrentOffer);
+            Assert.IsFalse(service.TryEnsureOffer(out _), "A declined passenger must not immediately reappear.");
+            Assert.IsFalse(service.TryGenerateOffer(out _), "Even a forced refresh must respect the decline cooldown.");
+
+            world.Time.SetTime(new WorldTime(day: 1, hour: 9, minute: 21));
+            Assert.IsTrue(service.TryEnsureOffer(out var replenished), "After decline cooldown, work replenishes.");
+            Assert.AreEqual(declined.Passenger.PassengerId, replenished.Passenger.PassengerId);
+        }
+
+        [Test]
+        public void DecliningOneOffer_KeepsTheRestOfTheBoardSelectable()
+        {
+            var world = CreateDemandWorld();
+            world.Time.SetTime(new WorldTime(day: 1, hour: 19, minute: 0));
+            var service = CreateService(world, seedOverride: 7);
+
+            var board = service.GetEligibleOffers();
+            var declined = board[0];
+            var remaining = board[1];
+
+            Assert.IsTrue(service.DeclineOffer(declined));
+            var afterDecline = service.GetEligibleOffers();
+            Assert.AreEqual(1, afterDecline.Count);
+            Assert.IsTrue(ContainsOfferId(afterDecline, remaining.OfferId));
+
+            for (int i = 0; i < afterDecline.Count; i++)
+            {
+                Assert.AreNotEqual(declined.Passenger.PassengerId, afterDecline[i].Passenger.PassengerId);
+            }
+
+            Assert.IsTrue(service.TryReserveOffer(remaining));
+            Assert.IsTrue(service.ConsumeReservedOffer(remaining));
         }
 
         [Test]
@@ -286,6 +363,28 @@ namespace OutsiderDriver.Tests.EditMode
             return ids;
         }
 
+        private static List<string> CollectOfferIds(IReadOnlyList<RideOffer> offers)
+        {
+            var ids = new List<string>();
+            for (int i = 0; i < offers.Count; i++)
+            {
+                ids.Add(offers[i].OfferId);
+            }
+            return ids;
+        }
+
+        private static bool ContainsOfferId(IReadOnlyList<RideOffer> offers, string offerId)
+        {
+            for (int i = 0; i < offers.Count; i++)
+            {
+                if (string.Equals(offers[i].OfferId, offerId, System.StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         private RideDemandService CreateService(DemandWorld world, int seedOverride)
         {
             return new RideDemandService(world.Network, world.Registry, world.Time, world.Config, seedOverride);
@@ -338,7 +437,8 @@ namespace OutsiderDriver.Tests.EditMode
                 minimumRideDistanceMeters: 25f,
                 offerLifetimeMinutes: 12,
                 declineCooldownMinutes: 20,
-                randomSeed: 0);
+                randomSeed: 0,
+                maxVisibleOffers: 2);
 
             var time = new TimeService(null);
             return new DemandWorld(network, registry, time, config);

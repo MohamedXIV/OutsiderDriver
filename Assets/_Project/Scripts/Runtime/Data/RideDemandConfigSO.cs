@@ -23,6 +23,10 @@ namespace OutsiderDriver.Data
         [Tooltip("In-game minutes before an unaccepted offer expires.")]
         [SerializeField] private int _offerLifetimeMinutes = 12;
 
+        [Min(1)]
+        [Tooltip("Maximum number of simultaneously visible, stable offers.")]
+        [SerializeField] private int _maxVisibleOffers = 3;
+
         [Min(0)]
         [Tooltip("In-game minutes before a declined or expired offer may be offered again.")]
         [SerializeField] private int _declineCooldownMinutes = 20;
@@ -33,6 +37,7 @@ namespace OutsiderDriver.Data
         public IReadOnlyList<PassengerDefinitionSO> Passengers => _passengers;
         public float MinimumRideDistanceMeters => _minimumRideDistanceMeters;
         public int OfferLifetimeMinutes => _offerLifetimeMinutes;
+        public int MaxVisibleOffers => _maxVisibleOffers;
         public int DeclineCooldownMinutes => _declineCooldownMinutes;
         public int RandomSeed => _randomSeed;
 
@@ -41,7 +46,8 @@ namespace OutsiderDriver.Data
             float minimumRideDistanceMeters = 25f,
             int offerLifetimeMinutes = 12,
             int declineCooldownMinutes = 20,
-            int randomSeed = 0)
+            int randomSeed = 0,
+            int maxVisibleOffers = 3)
         {
             _passengers.Clear();
             if (passengers != null)
@@ -53,6 +59,7 @@ namespace OutsiderDriver.Data
             _offerLifetimeMinutes = Mathf.Max(1, offerLifetimeMinutes);
             _declineCooldownMinutes = Mathf.Max(0, declineCooldownMinutes);
             _randomSeed = randomSeed;
+            _maxVisibleOffers = Mathf.Max(1, maxVisibleOffers);
         }
     }
 }
