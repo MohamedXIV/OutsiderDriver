@@ -111,7 +111,7 @@ These come from the prior design archive. Unless explicitly overridden, they des
 | --- | --- | --- |
 | X-001 | 'The game is a succession of fixed authored clinic passengers and prescribed rides' | Original technical fixture, not the sandbox product |
 | X-002 | 'The map is a five-district debug diagram with ten-minute abstract edges' | Old prototype data, not authored city scale |
-| X-003 | 'All game content is generated procedurally or by an LLM' | Owner said no procedural generation; authored language and character quality matter |
+| X-003 | 'All game content, lore and dialogue is arbitrarily generated or by an LLM' | **Superseded narrowly:** procedural taxi-work instances ARE now essential (P-034); ungrounded canonical lore, wholly AI-generated writing and replacing authored character/language craft are NOT implied. City-geometry generation remains OPEN (O-030). |
 | X-004 | 'The game requires a main quest, objective chain, or combat to be fun' | Explicit owner rejection |
 | X-005 | 'No on-foot exploration anywhere' | Superseded by latest permission to walk in home and initial neighborhood |
 | X-006 | 'Walking means an entire GTA-scale open world' | Latest walk scope is intentionally local |
