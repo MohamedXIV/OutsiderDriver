@@ -1,6 +1,6 @@
 # Systemic Open-World Sandbox & Procedural Taxi Demand
 
-**Status:** Owner direction, 2026-10-28. **APPROVED:** a freeform, open-world-style taxi/life sandbox with **procedural/systemic work and ride opportunities, not a scripted or static playlist**. **NOT a claim of implementation.** Exact city-map generation strategy is separately **OPEN**.
+**Status:** Owner direction, 2026-10-28. **APPROVED:** a freeform, open-world-style taxi/life sandbox with **procedural/systemic work and ride opportunities, not a scripted or static playlist**. **NOT a claim of implementation.** **The city map, street network and building layout are fully hand-authored (P-036).**
 **Precedence:** supersedes earlier blanket "no procedural generation" language **for jobs, ride requests and everyday systemic opportunities** (Decision P-005 and related older passages). Read alongside [GAME_DESIGN](GAME_DESIGN.md), [Decisions](DECISIONS_AND_OPEN_QUESTIONS.md), [World Content Contract](WORLD_CONTENT_DATA_CONTRACT.md), and [Roadmap](ROADMAP.md).
 
 ## 1. Game identity: an independent city, not a ride selection campaign
@@ -46,9 +46,9 @@ Minimum acceptable player experience:
 
 ## 5. Explicit open questions and non-inferences
 
-- **Map/world *geometry* generation remains OPEN**: owner now calls the product a procedural open-world sandbox, unequivocally making work/ride *content* procedural; that alone does **not** choose seeded procedural city construction, chunk streaming, fully authored maps or a hybrid. Existing Unity-authored streets remain the current spatial source of truth until a separate decision.
+- **Map/world geometry is NOT procedural (P-036).** The **entire** city, its planned geography, roads/lanes and buildings/placements are human-authored from the outset using native Unity 2D isometric assets. Neither a runtime seed nor a design-time generator may invent the street grid or buildings. Procedurally generated *work opportunities* consume this fixed spatial source of truth; they do not generate geometry. O-030 is **resolved** by P-036.
 - Exact ride demand probabilities, expiry, resident lifecycle detail, player discovery channels and anti-repetition heuristics are **implementation tuning**, not canon. Start with clear minimal rules that produce variety and coherent eligibility.
-- **Open world does not mean:** mandatory manual driving, universal indoor access, full-city foot traversal immediately, a GTA-scale physics city, an all-NPC AI simulation or a main quest.
+- **Open world does not mean:** procedural maps/roads/buildings, mandatory manual driving, universal indoor access, full-city foot traversal immediately, a GTA-scale physics city, an all-NPC AI simulation or a main quest.
 - Never confuse **authored content** with **scripted gameplay**. The city, locations and reusable dialogue assets can be hand-authored while the **gameplay situations are procedural**.
 
 ## 6. Scope/quality guardrails
