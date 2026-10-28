@@ -7,7 +7,7 @@
 
 ---
 
-> **Hard design constraints confirmed 2026-10-24:** The game remains a **genuine Unity 2D Isometric game**, NOT a 3D world with an isometric camera. Content should be **data-driven wherever practical**, with stable IDs such as `district_01` independent of proposed names, localized labels, lore, descriptions and authored coordinates/bounds. This is a requirement for editable authored content, **not** a mandate to implement a general database, content-management platform or procedural city system. See [World & Content Data Contract](WORLD_CONTENT_DATA_CONTRACT.md). This technical blueprint must not override newer owner decisions or assume old technical examples are locked product choices.
+> **Hard design constraints confirmed 2026-10-24:** The game remains a **genuine Unity 2D Isometric game**, NOT a 3D world with an isometric camera. Content should be **data-driven wherever practical**, with stable IDs such as `district_01` independent of proposed names, localized labels, lore, descriptions and authored coordinates/bounds. This is a requirement for editable definitions, **not** a mandate to implement a general database or city generator. **Owner update 2026-10-28: procedural/systemic ride/job opportunities are required (P-034/P-035); future procedural city geometry remains OPEN (O-030)**. See [World & Content Data Contract](WORLD_CONTENT_DATA_CONTRACT.md). This technical blueprint must not override newer owner decisions or assume old technical examples are locked product choices.
 
 ## 1. Architectural North Star
 
