@@ -2,10 +2,12 @@ using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using OutsiderDriver.Core.State;
 using OutsiderDriver.Core.Time;
 using OutsiderDriver.Data;
 using OutsiderDriver.Navigation;
 using OutsiderDriver.Rides;
+using OutsiderDriver.Vehicles;
 using OutsiderDriver.World;
 
 namespace OutsiderDriver.Tests.EditMode
@@ -171,6 +173,71 @@ namespace OutsiderDriver.Tests.EditMode
             Assert.IsTrue(service.AcceptOffer(current));
             Assert.IsTrue(service.TryEnsureOffer(out var next));
             Assert.IsNotNull(next);
+        }
+
+        [Test]
+        public void DifferentSeeds_CanSelectDifferentOrdinaryWork()
+        {
+            var world = CreateDemandWorld();
+            world.Time.SetTime(new WorldTime(day: 1, hour: 9, minute: 0));
+
+            var firstKeys = new HashSet<string>();
+            for (int seed = 1; seed <= 8; seed++)
+            {
+                var service = CreateService(world, seedOverride: seed);
+                Assert.IsTrue(service.TryEnsureOffer(out var offer));
+                firstKeys.Add(offer.Key);
+            }
+
+            Assert.Greater(firstKeys.Count, 1, "Seeded selection must not collapse to one fixed job.");
+        }
+
+        [Test]
+        public void ProductionScene_DemandContinuesAfterARealSettledRide()
+        {
+            const string scenePath = "Assets/_Project/Scenes/OutsiderCity.unity";
+            const string configPath = "Assets/_Project/Data/Rides/RideDemandConfig_Default.asset";
+            var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+            Assert.IsTrue(scene.IsValid());
+
+            var network = Object.FindAnyObjectByType<RoadNetwork>();
+            var registry = Object.FindAnyObjectByType<CityWorldRegistry>();
+            var taxi = Object.FindAnyObjectByType<VehicleController>();
+            var config = UnityEditor.AssetDatabase.LoadAssetAtPath<RideDemandConfigSO>(configPath);
+            Assert.IsNotNull(network);
+            Assert.IsNotNull(registry);
+            Assert.IsNotNull(taxi);
+            Assert.IsNotNull(config);
+
+            var time = new TimeService(null);
+            time.SetTime(new WorldTime(day: 1, hour: 12, minute: 0));
+            var demand = new RideDemandService(network, registry, time, config, seedOverride: 7);
+            Assert.IsTrue(demand.TryEnsureOffer(out var offer));
+            Assert.IsTrue(demand.AcceptOffer(offer));
+
+            var playerState = new PlayerStateService();
+            using var rideService = new RideLifecycleService(network, taxi, playerState);
+            taxi.transform.position = offer.PickupNode.Position;
+            Assert.IsTrue(rideService.TryOfferHail(offer.Passenger, offer.PickupNode, offer.DestinationNode, offer.District));
+            Assert.AreEqual(offer.QuotedFare, rideService.ActiveRequest.QuotedBaseFare);
+            Assert.IsTrue(rideService.AcceptHail());
+            Assert.AreEqual(RidePhase.AwaitingBoarding, rideService.CurrentPhase);
+            Assert.IsTrue(rideService.BoardPassenger());
+
+            for (int i = 0; i < 5000 && taxi.HasActiveRoute; i++)
+            {
+                taxi.TickMovement(0.05f);
+            }
+
+            Assert.IsFalse(taxi.HasActiveRoute, "The settled production ride must complete on the real city graph.");
+            Assert.AreEqual(RidePhase.ArrivedAtDestination, rideService.CurrentPhase);
+
+            int creditsBefore = playerState.Credits;
+            Assert.IsTrue(rideService.CompleteAndSettleRide());
+            Assert.Greater(playerState.Credits, creditsBefore);
+
+            Assert.IsTrue(demand.TryEnsureOffer(out var nextOffer));
+            Assert.IsNotNull(nextOffer);
         }
 
         private static void AssertValidOffers(DemandWorld world, IReadOnlyList<RideOffer> offers)
