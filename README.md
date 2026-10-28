@@ -4,7 +4,7 @@
 
 You are an illegal human resident living under a cover identity in a non-human civilization. Make a living carrying passengers, talk to them or enjoy the silence, learn the city and its languages, become familiar with people if you wish, and spend ordinary time at home or walking around your neighborhood.
 
-**This is an intentionally simple, freeform social/taxi-life sandbox** — not a combat RPG, quest campaign, procedural city generator, giant economy simulator or all-citizen AI research project.
+**This is an intentionally simple, procedural/systemic open-world taxi-life sandbox**: ride requests/jobs arise from a living world rather than a fixed mission playlist. Not a combat RPG, quest campaign, giant economy simulator or all-citizen AI research project. Procedural *city map* generation versus an authored/hybrid city remains a separate open decision.
 
 ## Current project
 
@@ -28,6 +28,8 @@ You are an illegal human resident living under a cover identity in a non-human c
 | **[Decisions & Open Questions](docs/DECISIONS_AND_OPEN_QUESTIONS.md)** | What was approved, historically intended, superseded, merely illustrative or still undecided; IDs for every agent |
 | **[World & Content Data Contract](docs/WORLD_CONTENT_DATA_CONTRACT.md)** | Non-negotiable real 2D isometric representation; stable IDs and editable authored world metadata; distinction from procedural generation |
 | **[City Scale & Street Standards](docs/CITY_SCALE_AND_STREET_STANDARDS.md)** | Approved 1m logical ground cells; nominal car, lane and sidewalk widths; full-width streets vs lane-aware navigation; 2D iso Editor and visual-calibration rules |
+| **[Systemic Open-World & Ride Demand](docs/SYSTEMIC_OPEN_WORLD_AND_RIDE_DEMAND.md)** | Mandatory procedural work offers, open-world taxi gameplay, grounded passenger and route selection, and P0 acceptance |
+| **[Roadmap & Active Epic](docs/ROADMAP.md)** | Active playable taxi milestone, work sequencing, dependencies and future follow-ons |
 | **[Systems Architecture](docs/SYSTEMS_ARCHITECTURE.md)** | Canonical technical blueprint: VContainer DI, TimeService ticks, GTA-style traffic bubble, Ink narrative engine, UI Toolkit MVP, and localization |
 | **[Visual Direction](docs/VISUAL_DIRECTION.md)** | Bright alien retro-futurism, architecture, vehicles, people, cozy home, user-supplied reference interpretations and art-production unknowns |
 | **[Engineering Principles](docs/ENGINEERING_PRINCIPLES.md)** | Unity-native 2D approach, clean production systems, performance validation, and previous mistakes to avoid |
@@ -44,7 +46,7 @@ You are an illegal human resident living under a cover identity in a non-human c
 
 ## Clear product boundaries
 
-- **No combat. No quests. No mandatory main story. No procedural generation pillar.**
+- **No combat. No quests. No mandatory main story. Procedural/systemic taxi work and non-linear open-world city travel are core pillars (P-034/P-035).**
 - **No city-wide on-foot open world promised now**; home and local neighborhood are the approved initial walking scope.
 - **No old code migration** from Babylon.js/TypeScript or Godot/GDScript.
 - **No technical demo or temporary test scene promoted as production architecture.**
