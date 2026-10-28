@@ -5,7 +5,7 @@
 **Read with:** [Game Design](GAME_DESIGN.md), [Decision Register](DECISIONS_AND_OPEN_QUESTIONS.md), [Systems Architecture](SYSTEMS_ARCHITECTURE.md), [Engineering Principles](ENGINEERING_PRINCIPLES.md).
 
 > **Non-negotiable 1: Outsider Driver is a genuine 2D ISOMETRIC game.**  
-> **Non-negotiable 2: Prefer DATA-DRIVEN authoring whenever it provides genuine flexibility, particularly for districts, locations, streets, residents and other game content.**
+> **Non-negotiable 2: Prefer DATA-DRIVEN authoring for places, residents and rules, and REQUIRE PROCEDURAL/SYSTEMIC taxi ride opportunities using that grounded data (P-034).**
 >
 > This document is a **design contract**, not proof its complete data model has been coded. A conceptual example here must not be mistaken for an approved exact C# schema, coordinates or locked place names.
 
@@ -111,7 +111,7 @@ A district record should **be able to represent** the following categories as de
 - **Never conflate** a logical 1m ground cell with the on-screen isometric diamond, sprite pixels, Unity's isometric cell-size projection parameter or measured Unity Transform lengths without a tested calibration. The current production scene was constructed before this decision; realigning art, navigation, movement and camera is implementation work, not already-verified reality.
 - Roads are **full-width drawn/painted surfaces**, not 1-cell-thick ribbons. Unique `RoadNode`s are for sparse lane-aware routes/turns/intersections/stops and should not be cloned indiscriminately with repeatable visual prefabs. Bidirectional traffic should be guided along sensible *separate directions* when necessary for passing. The drawn Tilemap and connected road graph must agree.
 - The screenshot's flat schematic streets and building symbols are **not visual approval**. True native Unity 2D isometric remains required; show building masses, fronts, sidewalks, natural street use and rendering/occlusion cues, not a 3D conversion. Unity Tile Palette and Grid/Tilemap isometric overlay are the editor-authoring reference; the default Scene View grey background grid may stay Cartesian.
-- Source: [City Scale & Street Standards](CITY_SCALE_AND_STREET_STANDARDS.md). No procedural roads framework or monolithic scene-builder is authorized.
+- Source: [City Scale & Street Standards](CITY_SCALE_AND_STREET_STANDARDS.md). No universal procedural roads framework or monolithic scene-builder is authorized **without a separate decision (O-030)**.
 
 ### Coordinates, area boundaries and streets
 
@@ -122,11 +122,12 @@ A district record should **be able to represent** the following categories as de
 - Same for candidate district divisions and nicknames: the owner has not yet locked the new four-district geography; do not make a beautiful brainstorm board into the immutable official city layout.
 - In-world names should have cultural history and nuance; keep **candidate names and status** separate from the approved localized display name. A list of candidates is an **editorial aid**, not a runtime random-name pool.
 
-### No confusion between data-driven and procedural generation
+### Data-driven authored definitions AND procedural gameplay (owner P-034/P-035)
 
-- **Data-driven = humans/designers author the city and its content as editable structured records/assets.**
-- **Procedural generation = an algorithm creates a city/map/story from rules or seeds.** The latter is explicitly *not* the game's planned world-authoring model.
-- The runtime may dynamically select a valid authored passenger, ride or dialogue based on time and state; that is **systemic gameplay over authored data**, not authorization to generate unapproved lore, arbitrary geometry, or random canonical names.
+- **Data-driven authoring** means designers provide a structured source of truth: stable place, passenger, district, street and dialogue identities, configurations, availability and rules, with editable Unity assets.
+- **Procedural/systemic gameplay is REQUIRED:** the runtime creates ordinary taxi requests/job opportunities from the clock, world state, passenger eligibility and reachable destinations. It must not run through a fixed authored passenger/job playlist. Reusable authored Ink/story content is compatible with procedural work.
+- **Map geometry generation is a separate OPEN decision (O-030).** Existing production Unity streets and scene/Tilemap coordinates remain authored and authoritative for actual connectivity. Do not implement a city generator or treat the current authored street work as invalid simply because the sandbox has procedural rides.
+- Systemic work does not authorize generating unapproved canonical alien names, arbitrary unsupported lore, inaccessible pickup destinations or ungrounded random stories.
 
 ## C. Integrate with what the Unity repository already has
 
