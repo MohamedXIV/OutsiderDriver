@@ -10,7 +10,7 @@ Build a **2D isometric open-world-style alien taxi/life sandbox**. An illegal hu
 
 - **Authored content is not scripted gameplay.** World locations, roads, characters, rules and dialogue pieces may be designer-authored; **individual work opportunities are assembled by the runtime**. A stable named resident may appear again for grounded reasons.
 - **Open world is an experience promise:** free non-linear taxi travel and ordinary work in a connected city. That does not force all-city pedestrian traversal immediately, 3D, manual driving or a giant all-resident simulation.
-- **Current map is authored** with real meter-scale lanes and editable Unity Tilemaps/Prefabs. Whether *map geometry* itself will be procedurally generated, hybrid or fully authored is a distinct **open design question**, [#25](https://github.com/MohamedXIV/OutsiderDriver/issues/25) / O-030; do not block systemic gameplay on it.
+- **City geometry is definitively 100% hand-authored (P-036)**: geography, road networks, street surfaces, building footprints and placement, across the whole game. Unity Tilemaps/Prefabs and reusable assets make human design flexible, but no algorithm generates the city or buildings. [#25](https://github.com/MohamedXIV/OutsiderDriver/issues/25) is the **resolved** decision record; only jobs, ride opportunities and permitted ambient world activity are systemic/procedural. Other future procedural features may be discussed separately.
 - Scope stays grounded in actual game feel: repeated jobs, contextual people, time that moves, no forced main story.
 
 ## Completed production foundation — maintain, don't rebuild
@@ -41,7 +41,7 @@ The previous agent reports 62/62 EditMode and 1/1 PlayMode passing for the **roa
 
 A player opens `OutsiderCity`, chooses among available *world-generated*, reachable taxi jobs, may accept/decline, drives to pickup, boards, travels along valid real roads, optionally remains silent, arrives, receives grounded fare, sees credits update, and continues receiving **new opportunities** without restarting. Tests show available jobs genuinely depend on changing time/world state (and valid reproducible seeds if used). **Do not close #17 on one hardcoded demo trip**, even if a PlayMode test passes.
 
-No arbitrary city generator, quest system, extra districts, optional romance, final-art overhaul, advanced economy, new passenger AI, full neighborhood-on-foot expansion or broad save migration in P0.
+No city/road/building generator (at any milestone), quest system, extra districts in P0, optional romance, final-art overhaul, advanced economy, new passenger AI, full neighborhood-on-foot expansion or broad save migration in P0.
 
 ## NEXT — after P0 is actually enjoyable
 
@@ -49,7 +49,7 @@ No arbitrary city generator, quest system, extra districts, optional romance, fi
 | --- | --- | --- | --- |
 | **P1 — People & conversation** | [#23](https://github.com/MohamedXIV/OutsiderDriver/issues/23) | Context-sensitive reusable Ink talk, optional silence, recurring passenger identity and first simple social memory | P0 real work repeatability; no scripted missions |
 | **P2 — Living-city continuity** | [#24](https://github.com/MohamedXIV/OutsiderDriver/issues/24) | Availability/routines/offscreen coherence affecting actual requests as city clock moves | Demonstrable need after human playtesting, avoid all-NPC simulation |
-| **Design gate — city geography model** | [#25](https://github.com/MohamedXIV/OutsiderDriver/issues/25) | Explicit decision: authored, procedural or hybrid road/district/map-generation strategy | Non-blocking for P0/P1; no unapproved generator |
+| **CLOSED design gate — city geography** | [#25](https://github.com/MohamedXIV/OutsiderDriver/issues/25) | **Resolved P-036:** fully hand-designed city, road/street layout, buildings and placement; never procedural | No further decision required for the authored map; only new unrelated procedural concepts are open to future discussion |
 
 ## Triage and implementation rules
 
