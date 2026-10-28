@@ -4,7 +4,7 @@
 
 You are an illegal human resident living under a cover identity in a non-human civilization. Make a living carrying passengers, talk to them or enjoy the silence, learn the city and its languages, become familiar with people if you wish, and spend ordinary time at home or walking around your neighborhood.
 
-**This is an intentionally simple, procedural/systemic open-world taxi-life sandbox**: ride requests/jobs arise from a living world rather than a fixed mission playlist. Not a combat RPG, quest campaign, giant economy simulator or all-citizen AI research project. Procedural *city map* generation versus an authored/hybrid city remains a separate open decision.
+**This is an intentionally simple, procedural/systemic open-world taxi-life sandbox**: ride requests/jobs arise from a living world rather than a fixed mission playlist. Not a combat RPG, quest campaign, giant economy simulator or all-citizen AI research project. **The city itself—geography, streets, roads, buildings and placement—is fully hand-designed, not procedurally generated (P-036).**
 
 ## Current project
 
@@ -15,6 +15,7 @@ You are an illegal human resident living under a cover identity in a non-human c
 - **Walking:** real on-foot freedom, **initially limited to the player's home and own neighborhood**.
 - **Presentation:** beautiful, bright, cozy, rich **alien retro-futurism** and expressive attractive characters. The exact in-game sprite/pixel-art treatment is **not finalized**.
 - **Narrative:** voluntary contextual conversations, recurring individuals and possible relationships; no compulsory plot/quests.
+- **City geometry:** 100% deliberately hand-designed geography, roads, lots, buildings and placement; Unity native 2D Isometric authored assets, NEVER procedural city/building generation (P-036).
 - **City:** ordinary activity and believable local life without needing a detailed simulator running for every resident.
 - **Content:** **data-driven by default** where practical: stable IDs (`district_01`, etc.) independent of editable names, candidate names, lore, world positions/bounds, relevant references and authored metadata.
 
