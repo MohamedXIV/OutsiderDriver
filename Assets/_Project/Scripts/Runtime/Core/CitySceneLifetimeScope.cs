@@ -2,6 +2,7 @@ using UnityEngine;
 using VContainer;
 using VContainer.Unity;
 using OutsiderDriver.Audio;
+using OutsiderDriver.Data;
 using OutsiderDriver.Navigation;
 using OutsiderDriver.Player;
 using OutsiderDriver.Rides;
@@ -19,12 +20,22 @@ namespace OutsiderDriver.Core
     [DisallowMultipleComponent]
     public class CitySceneLifetimeScope : LifetimeScope
     {
+        [Header("Systemic Ride Demand")]
+        [SerializeField] private RideDemandConfigSO _rideDemandConfig;
+
         protected override void Configure(IContainerBuilder builder)
         {
             builder.RegisterComponentInHierarchy<RoadNetwork>();
             builder.RegisterComponentInHierarchy<VehicleController>();
             builder.RegisterComponentInHierarchy<TrafficDirector>();
             builder.Register<RideLifecycleService>(Lifetime.Scoped).As<IRideLifecycleService>();
+
+            if (_rideDemandConfig != null)
+            {
+                builder.Register<RideDemandService>(Lifetime.Scoped)
+                    .As<IRideDemandService>()
+                    .WithParameter(_rideDemandConfig);
+            }
 
             var worldRegistry = FindAnyObjectByType<CityWorldRegistry>();
             if (worldRegistry != null)

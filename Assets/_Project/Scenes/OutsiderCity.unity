@@ -121799,6 +121799,7 @@ MonoBehaviour:
   - {fileID: 550227503}
   - {fileID: 879821119}
   - {fileID: 1334255135}
+  _rideDemandConfig: {fileID: 11400000, guid: 493e5294137cc2847b8a6c3c47133c06, type: 2}
 --- !u!4 &463989274
 Transform:
   m_ObjectHideFlags: 0

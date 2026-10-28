@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 110a3c3d9c2f67d4a9e4f97160bd8813, type: 3}
+  m_Name: Passenger_resident_004
+  m_EditorClassIdentifier: OutsiderDriver.Runtime::OutsiderDriver.Data.PassengerDefinitionSO
+  _passengerId: resident_004
+  _displayName: resident_004
+  _speciesId: species_tbd
+  _cultureId: culture_tbd
+  _nativeLanguageId: Common
+  _portraitSprite: {fileID: 0}
+  _worldSprite: {fileID: 0}
+  _inkStoryJson: {fileID: 0}
+  _defaultEntryKnot: ride_start
+  _fareMultiplier: 1.2
+  _tipGenerosity: 0.1
+  _schedule:
+  - StartHour: 8
+    EndHour: 20
+    DistrictId: district_02
+    PreferredNodeId: node_d02_east_link
