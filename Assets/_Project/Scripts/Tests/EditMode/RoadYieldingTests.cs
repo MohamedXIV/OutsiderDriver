@@ -118,6 +118,46 @@ namespace OutsiderDriver.Tests.EditMode
             Assert.AreEqual(approachingCar, nodeCrossing.OccupyingVehicle);
         }
 
+        [Test]
+        public void VehicleController_PerpendicularTieAtUncontrolledIntersection_DoesNotGridlock()
+        {
+            var network = CreateMetricNetwork();
+            var center = CreateNode(network.transform, "Center", 10, 10);
+            center.Priority = RoadNodePriority.YieldIntersection;
+            center.IntersectionClearanceRadius = 6f;
+
+            var west = CreateNode(network.transform, "West", 4, 10);
+            var east = CreateNode(network.transform, "East", 16, 10);
+            var south = CreateNode(network.transform, "South", 10, 4);
+            var north = CreateNode(network.transform, "North", 10, 16);
+
+            Connect(west, center);
+            Connect(center, east);
+            Connect(south, center);
+            Connect(center, north);
+            network.RebuildNetwork();
+
+            var eastbound = CreateVehicle("Eastbound", west.Position, network);
+            var northbound = CreateVehicle("Northbound", south.Position, network);
+            Assert.IsTrue(eastbound.NavigateTo(east));
+            Assert.IsTrue(northbound.NavigateTo(north));
+
+            for (int i = 0; i < 400 && (eastbound.HasActiveRoute || northbound.HasActiveRoute); i++)
+            {
+                eastbound.TickMovement(0.05f);
+                northbound.TickMovement(0.05f);
+            }
+
+            Assert.IsFalse(eastbound.HasActiveRoute, "Equal-distance eastbound cross traffic must not deadlock at the junction.");
+            Assert.IsFalse(northbound.HasActiveRoute, "Equal-distance northbound cross traffic must not deadlock at the junction.");
+        }
+
+        private static void Connect(RoadNode a, RoadNode b)
+        {
+            a.AddConnection(b);
+            b.AddConnection(a);
+        }
+
         private RoadNetwork CreateMetricNetwork()
         {
             var gridGo = CreateTrackedObject("IsometricGrid", Vector3.zero);

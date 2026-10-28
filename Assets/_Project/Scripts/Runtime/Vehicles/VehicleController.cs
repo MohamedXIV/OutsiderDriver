@@ -16,6 +16,7 @@ namespace OutsiderDriver.Vehicles
     [DisallowMultipleComponent]
     public class VehicleController : MonoBehaviour
     {
+        private const float UncontrolledIntersectionTieMeters = 0.5f;
         private static readonly List<VehicleController> ActiveVehicles = new List<VehicleController>();
 
         [Header("Road & Routing")]
@@ -321,14 +322,12 @@ namespace OutsiderDriver.Vehicles
         /// </summary>
         public bool ShouldYield(RoadNode upcomingNode, Vector2 travelGroundDirection, float distanceToNode)
         {
-            // 1. Check forward vehicle spacing sensor against other active vehicles
-            if (IsVehicleBlockingAhead(travelGroundDirection))
-            {
-                return true;
-            }
+            bool approachingIntersection = upcomingNode != null && distanceToNode <= _intersectionYieldDistance;
 
-            // 2. Check upcoming intersection reservation and priority rules
-            if (upcomingNode != null && distanceToNode <= _intersectionYieldDistance)
+            // 1. Check intersection right-of-way before the forward sensor. Once this vehicle wins
+            // the uncontrolled-intersection tie-break, a stationary crossing car waiting at the
+            // same node must not read as an in-lane obstacle, or both cars deadlock forever.
+            if (approachingIntersection)
             {
                 if (upcomingNode.Priority == RoadNodePriority.YieldIntersection)
                 {
@@ -362,10 +361,13 @@ namespace OutsiderDriver.Vehicles
                 }
             }
 
-            return false;
+            // 2. Check forward vehicle spacing sensor against other active vehicles
+            return IsVehicleBlockingAhead(
+                travelGroundDirection,
+                approachingIntersection ? upcomingNode : null);
         }
 
-        private bool IsVehicleBlockingAhead(Vector2 travelGroundDirection)
+        private bool IsVehicleBlockingAhead(Vector2 travelGroundDirection, RoadNode priorityIntersection = null)
         {
             if (travelGroundDirection.sqrMagnitude < 0.0001f) return false;
 
@@ -383,6 +385,16 @@ namespace OutsiderDriver.Vehicles
 
                 // Ignore oncoming vehicles traveling in the opposite lane so bidirectional streets never deadlock head-on
                 if (other.HasActiveRoute && Vector2.Dot(direction, other._forwardGroundDirection) < -0.25f)
+                {
+                    continue;
+                }
+
+                // At the same uncontrolled intersection, a stationary crossing car that already
+                // yielded to this vehicle is not an in-lane obstacle; right-of-way decides the crossing.
+                if (priorityIntersection != null
+                    && other.CurrentTargetNode == priorityIntersection
+                    && Mathf.Abs(other._currentSpeed) < 0.1f
+                    && Mathf.Abs(Vector2.Dot(direction, other._forwardGroundDirection)) < 0.5f)
                 {
                     continue;
                 }
@@ -419,14 +431,26 @@ namespace OutsiderDriver.Vehicles
                 var other = ActiveVehicles[i];
                 if (other == null || ReferenceEquals(other, this)) continue;
 
-                // If another vehicle is targeting this intersection and is closer or moving on a main artery
+                // If another vehicle is targeting this intersection, use distance and a deterministic tie-break
                 if (other.CurrentTargetNode == intersectionNode)
                 {
-                    Vector2 toNode = nodeGround - projection.WorldToGround(other.transform.position);
+                    Vector2 otherGround = projection.WorldToGround(other.transform.position);
+                    Vector2 toNode = nodeGround - otherGround;
                     if (toNode.sqrMagnitude <= checkRadiusSqr)
                     {
-                        float myDistSqr = (nodeGround - myGroundPosition).sqrMagnitude;
-                        if (toNode.sqrMagnitude < myDistSqr)
+                        float myDist = Mathf.Sqrt((nodeGround - myGroundPosition).sqrMagnitude);
+                        float otherDist = Mathf.Sqrt(toNode.sqrMagnitude);
+
+                        if (otherDist < myDist - UncontrolledIntersectionTieMeters)
+                        {
+                            return true;
+                        }
+
+                        // Cross traffic arriving within half a metre is a genuine tie. Without a
+                        // deterministic winner both cars yield forever and gridlock the junction.
+                        if (Mathf.Abs(otherDist - myDist) <= UncontrolledIntersectionTieMeters
+                            && Mathf.Abs(Vector2.Dot(_forwardGroundDirection, other._forwardGroundDirection)) < 0.5f
+                            && OtherHasTieBreakPriority(otherGround, myGroundPosition))
                         {
                             return true;
                         }
@@ -435,6 +459,17 @@ namespace OutsiderDriver.Vehicles
             }
 
             return false;
+        }
+
+        private static bool OtherHasTieBreakPriority(Vector2 otherGround, Vector2 myGround)
+        {
+            if (otherGround.x < myGround.x - 0.001f)
+            {
+                return true;
+            }
+
+            return Mathf.Abs(otherGround.x - myGround.x) <= 0.001f
+                && otherGround.y < myGround.y - 0.001f;
         }
 
         private void MoveAlongPath(float deltaTime)
