@@ -90,3 +90,34 @@ This section records what was actually authored in the production scene; it does
 
 - Final art/pixel density/PPU/camera, traffic side (right-hand is a technical demo convention), the 16 m class in an actual scene, final lane markings/signage, and home interior/on-foot layout.
 - Lot variety, frontage and everyday street props are addressed by the subsequent visual-polish pass and recorded in §9.
+
+## 9. Visual polish pass (2026-10-25)
+
+Kept the approved 2D isometric projection, camera direction, metre scale, lane-aware navigation and sorting. This was an in-place pass over the existing production blocks; no new districts, procedural generator, monolithic builder or runtime prop system.
+
+### 9.1 Reusable authored assets
+
+- **Tiles:** paved path, garden, parking, four curb-cut variants and four stop-line variants, plus brighter/wider centerline sprites applied to the existing centerline tiles.
+- **Prefabs under `Assets/_Project/Prefabs/Props/`:** StreetLamp, Planter, Bench, AlienSign, AlienTree, Hedge, MarketStall and ParkedCar. All are visual-only (no `VehicleController`, no colliders), with sorting order 0 and sprite sort point Pivot.
+- **63 editable prefab instances** are organized under the scene root `StreetLife`.
+
+### 9.2 Frontage, access and lot variety
+
+- Entrance paths and curb cuts: home 3 m driveway, residential, workshop, home parking apron, workshop parking apron, exchange, market and east-loop pavilion.
+- Paved/planted areas: home side garden, residential back garden, workshop-side garden, arcade-side garden, block B/D gardens, exchange plaza, market forecourt, market courtyards, east-pavilion forecourt and home/workshop parking aprons.
+- Three internal housing blocks were shifted for varied setbacks. The pass added 11 lamps, 8 planters, 6 benches, 12 trees, 19 hedge segments, 3 alien signs, 2 market stalls and 2 static parked cars.
+- Stop lines were added at the two main four-way junctions; brighter centerline dashes and curb cuts make intersections and entrances easier to read.
+
+### 9.3 Before/after evidence
+
+- Scene View: [before](evidence/city_scale_scene.png) / [after](evidence/city_scale_scene_after_polish.png).
+- Passing Game View: [before](evidence/two_vehicles_passing_game.png) / [after](evidence/two_vehicles_passing_game_after_polish.png).
+- Home frontage: [after](evidence/home_street_after_polish.png).
+- Market/east loop: [after](evidence/market_after_polish.png).
+- Intersection/stop-line close-up: [after](evidence/intersection_after_polish.png).
+
+### 9.4 Verification and limits
+
+- **EditMode:** 62/62 passed in the connected Editor and headlessly (`unity test --mode EditMode`) after the polish pass.
+- **PlayMode:** 1/1 passed headlessly (`unity test --mode PlayMode`) after the polish pass: real-time opposing pass, separate lanes, 2.95 m center gap, no mutual yielding.
+- This is still placeholder art: final sprites/colors, camera zoom, home interior/on-foot layout, traffic side and the 16 m street class remain open. The same authoring caveat applies: the pass was applied through the connected Editor/Pipeline C# and saved assets, not mouse-driven Tile Palette editing; owner GUI validation remains.
