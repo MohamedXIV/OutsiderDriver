@@ -27,7 +27,7 @@ The city is not organized around the protagonist. People have lives before and a
 
 ### Explicit non-goals
 
-No combat. No combat progression. No quest chains or mandatory missions. No main quest or required scripted plot progression. **Procedural/systemic ride and ordinary-job opportunities ARE core gameplay (P-034); no scripted playlist.** Exact city-*geometry* generation versus authored/hybrid remains OPEN (O-030). No forced story sequence of handcrafted passengers. No full-city on-foot open world in the first scope. No dedicated hardcore manual driving simulation. No grand-strategy economics, politics, or per-citizen cognition. No giant generic AI framework, one LLM per NPC, or reliance on always-online generation. No base building or compulsory dating game.
+No combat. No combat progression. No quest chains or mandatory missions. No main quest or required scripted plot progression. **Procedural/systemic ride and ordinary-job opportunities ARE core gameplay (P-034); no scripted playlist.** **City geography, roads and buildings are fully hand-designed, not procedural (P-036).** No forced story sequence of handcrafted passengers. No full-city on-foot open world in the first scope. No dedicated hardcore manual driving simulation. No grand-strategy economics, politics, or per-citizen cognition. No giant generic AI framework, one LLM per NPC, or reliance on always-online generation. No base building or compulsory dating game.
 
 These exclusions are product constraints, not deferred promises.
 
@@ -37,7 +37,7 @@ The new project is **Unity 6, C#, native 2D isometric/axonometric**. Its current
 
 **Mandatory representation clarification (owner, 2026-10-24):** **This game is 2D ISOMETRIC.** Attractive images resembling 3D dioramas or perspective city renders are art direction, not authorization to create 3D game worlds or a 3D-first asset/renderer architecture. Unity-native 2D scene assets remain the basis for the city, vehicles, walking, interiors and visual layering. The exact art technique and camera constants remain undecided.
 
-**Mandatory data-driven rule (owner, 2026-10-24):** Authored districts, locations, roads, buildings, residents and content should be **data-driven wherever practical**. Preserve stable IDs such as `district_01` separately from editable human-facing names, candidate names, metadata, lore and spatial information. District positions, boundaries, landmarks and links may be data or scene-authored spatial references with a single authority; do not hardcode provisional names as identities. The **current** spatial world is authored; procedural city-*geometry* design is not yet decided (O-030). **Runtime ride opportunities must be generated systemically** rather than being hardcoded episodes. See [World & Content Data Contract](WORLD_CONTENT_DATA_CONTRACT.md).
+**Mandatory data-driven rule (owner, 2026-10-24):** Authored districts, locations, roads, buildings, residents and content should be **data-driven wherever practical**. Preserve stable IDs such as `district_01` separately from editable human-facing names, candidate names, metadata, lore and spatial information. District positions, boundaries, landmarks and links may be data or scene-authored spatial references with a single authority; do not hardcode provisional names as identities. **All** city/world geometry, roads and building layouts are fully authored (P-036); no future procedural/hybrid city generation is planned. **Runtime ride opportunities must be generated systemically** rather than being hardcoded episodes. See [World & Content Data Contract](WORLD_CONTENT_DATA_CONTRACT.md).
 
 **Camera:** A close, readable, cinematic isometric view of the taxi and city. Smooth camera behavior should prioritize appreciating the road and understanding travel, not a distant city-builder view. The exact angle, zoom levels, framing, and UI presentation are **not finalized**.
 
@@ -186,7 +186,7 @@ These are proposed engineering principles, **not a demand to implement a new sim
 
 ## 8. Driving and map design boundaries
 
-The current city **geometry is authored**, with meaningful connected streets; future procedurally authored/generated map geometry versus hybrid remains an open design question (O-030), independent of the **approved procedural job system**. Roads can be long, curved, multi-level, and interrupted by safe junctions or service stops. Building a believable setting is part of pacing: a journey must feel long enough to converse and enjoy the view.
+The **entire city is purpose-built and hand-authored (P-036)**: geography, roads, building footprints and placements have meaningful designed spatial relationships. **No procedural road, building or map-layout generation.** This is independent of the **required systemic/procedural taxi work** (P-034). Roads can be long, curved, multi-level, and interrupted by safe junctions or service stops. Building a believable setting is part of pacing: a journey must feel long enough to converse and enjoy the view.
 
 - **Semi-autonomous taxi:** the driver gives direction, route preference or waypoint, and the car follows a valid route.
 - **Route choice:** alternative connected streets have real distance/time/context. The map need not be a full-fledged Google Maps clone.
