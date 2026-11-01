@@ -1,7 +1,7 @@
 # Outsider Driver — Canonical Game Design & Game DNA
 
 **Status:** Canonical product-intent specification for the clean Unity project.  
-**Decision cutoff:** 2026-10-28.  
+**Decision cutoff:** 2026-11-01.  
 **Authority:** The owner's latest explicit decisions in the October 2026 project discussion supersede conflicting design or implementation choices in both prior repositories.  
 **Companions:** [Decision Register](DECISIONS_AND_OPEN_QUESTIONS.md), [Visual Direction](VISUAL_DIRECTION.md), [Engineering Principles](ENGINEERING_PRINCIPLES.md), and root [AGENTS.md](../AGENTS.md).
 
@@ -193,6 +193,8 @@ The **entire city is purpose-built and hand-authored (P-036)**: geography, roads
 - **Optional reroute:** a route change takes effect at a legal point (e.g., the next road junction), not through teleportation.
 - **Road elevations:** overpasses only connect by authored intersections/ramps; drawing overlap is not navigation.
 - **Traffic:** believable cars, legal lanes, intersections, crossings, pedestrians and local avoidance, without pretending we need a full GTA vehicle/traffic simulation.
+- **P-037: credible motion and safe stops:** cars should maintain safe gaps and slow progressively for vehicles ahead; believable curves and signals matter for a driving-centered experience. The taxi must collect/drop passengers at explicitly hand-authored legal curbside/lay-by stops, **never stationary in a junction merely because a ride destination is a RoadNode**. This is required for P0 acceptance; see [Traffic & Transportation](TRAFFIC_AND_TRANSPORTATION.md).
+- **P-038: layered public transit (staged):** human-authored ground buses with real stop bays recessed at the curb while preserving sidewalk accessibility, rail-bound tram, bridges/ramps/overpasses and elevated monorail on its own guideway/stations. These are intended parts of the city, but not mandatory implementations before the first enjoyable taxi shift. No procedural infrastructure or universal transport simulator.
 - **Rider comfort:** don't make players race long dialogue against a ten-second journey; use genuine world scale and sensible interaction timing.
 - **Exploration:** on-foot freedom at home and within the initial neighborhood does not change semi-autonomous driving into mandatory manual steering.
 
