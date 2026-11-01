@@ -74,7 +74,7 @@ namespace OutsiderDriver.Tests.EditMode
             Assert.IsTrue(followerCar.IsYielding, "Follower vehicle should yield when lead vehicle is within forward sensor range.");
 
             // Move lead vehicle far ahead out of sensor range
-            leadCar.transform.position = CellWorld(8, 0);
+            leadCar.transform.position = CellWorld(30, 0);
             followerCar.TickMovement(0.1f);
 
             Assert.IsFalse(followerCar.IsYielding, "Follower vehicle should resume moving once lead car clears sensor range.");

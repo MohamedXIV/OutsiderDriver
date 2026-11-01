@@ -23,6 +23,15 @@ namespace OutsiderDriver.Data
         [Min(0.5f)]
         [SerializeField] private float _forwardSensorDistance = 9.0f;
 
+        [Header("Longitudinal Following (metres / seconds)")]
+        [Min(0.5f)] [SerializeField] private float _lengthMeters = 4.5f;
+        [Min(0.1f)] [SerializeField] private float _minimumGapMeters = 2f;
+        [Min(0.1f)] [SerializeField] private float _timeHeadwaySeconds = 1.2f;
+
+        public float LengthMeters => Mathf.Max(0.5f, _lengthMeters);
+        public float MinimumGapMeters => Mathf.Max(0.1f, _minimumGapMeters);
+        public float TimeHeadwaySeconds => Mathf.Max(0.1f, _timeHeadwaySeconds);
+
         [Header("Capacity & Visuals")]
         [Range(1, 6)]
         [SerializeField] private int _passengerCapacity = 2;

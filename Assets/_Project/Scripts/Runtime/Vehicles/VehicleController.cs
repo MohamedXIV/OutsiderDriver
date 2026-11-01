@@ -33,8 +33,6 @@ namespace OutsiderDriver.Vehicles
         [Header("Traffic Sensors & Yielding (metres)")]
         [Tooltip("Forward distance to check for another vehicle ahead in the same lane.")]
         [SerializeField] private float _forwardSensorDistance = 9f;
-        [Tooltip("Directional cone angle (degrees) for detecting vehicles directly ahead.")]
-        [SerializeField] private float _forwardSensorAngle = 35f;
         [Tooltip("Half-width of the forward sensor corridor. Vehicles in adjacent lanes are ignored.")]
         [SerializeField] private float _forwardSensorHalfWidth = 1.8f;
         [Tooltip("Distance from a YieldIntersection node at which the vehicle checks right-of-way.")]
@@ -51,6 +49,10 @@ namespace OutsiderDriver.Vehicles
         private Vector3 _forwardDirection = new Vector3(1f, 0.5f, 0f).normalized;
         private Vector2 _forwardGroundDirection = Vector2.right;
         private IsometricDirection _currentFacing = IsometricDirection.NorthEast;
+        public float LengthMeters => _carModel != null ? _carModel.LengthMeters : 4.5f;
+        private float MinimumGap => _carModel != null ? _carModel.MinimumGapMeters : 2f;
+        private float TimeHeadway => _carModel != null ? _carModel.TimeHeadwaySeconds : 1.2f;
+        private float _idleElevation;
         private RoadNode _reservedNode;
         private int _laneMergePathIndex = -1;
         private bool _laneMergeComplete;
@@ -186,6 +188,8 @@ namespace OutsiderDriver.Vehicles
         /// </summary>
         public void TickMovement(float deltaTime)
         {
+            if (deltaTime <= 0f) return;
+
             if (_isPaused || !HasActiveRoute)
             {
                 _isYielding = false;
@@ -303,6 +307,7 @@ namespace OutsiderDriver.Vehicles
 
         public void CancelRoute()
         {
+            _idleElevation = TrafficElevation;
             ReleaseReservedNode();
             _activePath.Clear();
             _currentPathIndex = 0;
@@ -321,6 +326,14 @@ namespace OutsiderDriver.Vehicles
         /// All distances are ground-plane metres.
         /// </summary>
         public bool ShouldYield(RoadNode upcomingNode, Vector2 travelGroundDirection, float distanceToNode)
+        {
+            GetFollowingLimit(travelGroundDirection,
+                distanceToNode <= _intersectionYieldDistance ? upcomingNode : null,
+                out float followingSpeed, out _);
+            return EvaluateYield(upcomingNode, distanceToNode, followingSpeed);
+        }
+
+        private bool EvaluateYield(RoadNode upcomingNode, float distanceToNode, float followingSpeed)
         {
             bool approachingIntersection = upcomingNode != null && distanceToNode <= _intersectionYieldDistance;
 
@@ -344,12 +357,11 @@ namespace OutsiderDriver.Vehicles
                 }
             }
 
-            // 2. Check forward vehicle spacing sensor before reserving the intersection so a car
-            // blocked behind an in-lane obstacle does not claim and hold the junction while stopped.
-            if (IsVehicleBlockingAhead(
-                travelGroundDirection,
-                approachingIntersection ? upcomingNode : null))
+            // Check following before claiming the junction (6d67cb6). A queue must not
+            // acquire or retain a reservation while blocked on its approach.
+            if (followingSpeed < _maxSpeed - 0.01f)
             {
+                ReleaseReservedNode();
                 return true;
             }
 
@@ -374,55 +386,100 @@ namespace OutsiderDriver.Vehicles
             return false;
         }
 
-        private bool IsVehicleBlockingAhead(Vector2 travelGroundDirection, RoadNode priorityIntersection = null)
+        private float TrafficElevation
         {
-            if (travelGroundDirection.sqrMagnitude < 0.0001f) return false;
+            get
+            {
+                var target = CurrentTargetNode;
+                if (target == null) return _idleElevation;
+                if (_currentPathIndex == 0) return target.ElevationLevel;
+                var previous = _activePath[_currentPathIndex - 1];
+                var projection = GroundProjection;
+                Vector2 start = projection.WorldToGround(previous.Position);
+                Vector2 segment = projection.WorldToGround(target.Position) - start;
+                float progress = segment.sqrMagnitude > 0.0001f
+                    ? Vector2.Dot(projection.WorldToGround(transform.position) - start, segment) / segment.sqrMagnitude : 1f;
+                return Mathf.Lerp(previous.ElevationLevel, target.ElevationLevel, Mathf.Clamp01(progress));
+            }
+        }
 
+        private void GetFollowingLimit(Vector2 travelDirection, RoadNode priorityIntersection,
+            out float speedLimit, out float clearTravel)
+        {
+            speedLimit = _maxSpeed;
+            clearTravel = float.PositiveInfinity;
+            if (travelDirection.sqrMagnitude < 0.0001f) return;
             var projection = GroundProjection;
-            Vector2 direction = travelGroundDirection.normalized;
-            Vector2 right = new Vector2(direction.y, -direction.x);
-            Vector2 myGroundPosition = projection.WorldToGround(transform.position);
-            float maxDistSqr = _forwardSensorDistance * _forwardSensorDistance;
-            float minCosAngle = Mathf.Cos(_forwardSensorAngle * Mathf.Deg2Rad);
+            Vector2 origin = projection.WorldToGround(transform.position);
+            // Existing sensor setting is a minimum, never shorter than the stopping horizon.
+            float horizon = Mathf.Max(_forwardSensorDistance,
+                LengthMeters + MinimumGap + _currentSpeed * TimeHeadway
+                + _currentSpeed * _currentSpeed / (2f * Mathf.Max(0.1f, _deceleration)));
 
             for (int i = 0; i < ActiveVehicles.Count; i++)
             {
                 var other = ActiveVehicles[i];
-                if (other == null || ReferenceEquals(other, this)) continue;
+                if (other == null || other == this || !other.isActiveAndEnabled) continue;
+                if (other._roadNetwork != _roadNetwork) continue;
+                Vector2 otherGround = projection.WorldToGround(other.transform.position);
+                if ((otherGround - origin).sqrMagnitude > horizon * horizon) continue;
 
-                // Ignore oncoming vehicles traveling in the opposite lane so bidirectional streets never deadlock head-on
-                if (other.HasActiveRoute && Vector2.Dot(direction, other._forwardGroundDirection) < -0.25f)
+                // Preserve 3029c2d: crossing waiters cannot block the tie-break winner.
+                if (priorityIntersection != null && other.CurrentTargetNode == priorityIntersection
+                    && other._currentSpeed < 0.1f
+                    && Mathf.Abs(Vector2.Dot(travelDirection, other._forwardGroundDirection)) < 0.5f) continue;
+
+                Vector2 segmentStart = origin;
+                float travelled = 0f;
+                // Follow the existing lane polyline around corners, bounded by the sensor horizon.
+                for (int index = _currentPathIndex; index < _activePath.Count && travelled < horizon; index++)
                 {
-                    continue;
-                }
-
-                // At the same uncontrolled intersection, a stationary crossing car that already
-                // yielded to this vehicle is not an in-lane obstacle; right-of-way decides the crossing.
-                if (priorityIntersection != null
-                    && other.CurrentTargetNode == priorityIntersection
-                    && Mathf.Abs(other._currentSpeed) < 0.1f
-                    && Mathf.Abs(Vector2.Dot(direction, other._forwardGroundDirection)) < 0.5f)
-                {
-                    continue;
-                }
-
-                Vector2 toOther = projection.WorldToGround(other.transform.position) - myGroundPosition;
-                float distSqr = toOther.sqrMagnitude;
-
-                if (distSqr <= 0.0001f || distSqr > maxDistSqr) continue;
-
-                // Only vehicles inside this lane's corridor block the path; adjacent lanes do not.
-                if (Mathf.Abs(Vector2.Dot(right, toOther)) > _forwardSensorHalfWidth) continue;
-
-                float distance = Mathf.Sqrt(distSqr);
-                float dot = Vector2.Dot(direction, toOther) / distance;
-                if (dot >= minCosAngle)
-                {
-                    return true;
+                    var node = _activePath[index];
+                    Vector2 end = projection.WorldToGround(node.Position);
+                    Vector2 tangent = index > 0
+                        ? end - projection.WorldToGround(_activePath[index - 1].Position)
+                        : travelDirection;
+                    if (tangent.sqrMagnitude < 0.0001f) continue;
+                    tangent.Normalize();
+                    Vector2 laneOffset = new Vector2(tangent.y, -tangent.x) * node.LaneOffsetMeters;
+                    end += laneOffset;
+                    if (index > _currentPathIndex)
+                    {
+                        // Use the outgoing lane line, not a diagonal chord between two
+                        // lane endpoints (which can sweep through the opposing lane).
+                        Vector2 laneStart = projection.WorldToGround(_activePath[index - 1].Position) + laneOffset;
+                        travelled += (laneStart - segmentStart).magnitude;
+                        segmentStart = laneStart;
+                    }
+                    Vector2 segment = end - segmentStart;
+                    float length = segment.magnitude;
+                    if (length < 0.001f) continue;
+                    Vector2 direction = segment / length;
+                    Vector2 offset = otherGround - segmentStart;
+                    float along = Vector2.Dot(offset, direction);
+                    float lateral = Mathf.Abs(direction.x * offset.y - direction.y * offset.x);
+                    bool aligned = !other.HasActiveRoute
+                        || Vector2.Dot(direction, other._forwardGroundDirection) > 0.5f;
+                    float startElevation = index == _currentPathIndex ? TrafficElevation : _activePath[index - 1].ElevationLevel;
+                    float pathElevation = Mathf.Lerp(startElevation, node.ElevationLevel, Mathf.Clamp01(along / length));
+                    bool sameElevation = Mathf.Abs(other.TrafficElevation - pathElevation) < 0.5f;
+                    // Include bodies just beyond the terminal node: their rear can still
+                    // obstruct the destination pose even though their centre is off-route.
+                    bool withinSegment = along <= length || index == _activePath.Count - 1;
+                    if (sameElevation && aligned && along > 0f && withinSegment && travelled + along <= horizon
+                        && lateral <= _forwardSensorHalfWidth)
+                    {
+                        float gap = travelled + along - (LengthMeters + other.LengthMeters) * 0.5f;
+                        float leadSpeed = other._isPaused || !other.HasActiveRoute ? 0f : other._currentSpeed;
+                        speedLimit = Mathf.Min(speedLimit, CarFollowing.TargetSpeed(_maxSpeed, gap,
+                            leadSpeed, other.Deceleration, _deceleration, MinimumGap, TimeHeadway));
+                        clearTravel = Mathf.Min(clearTravel, Mathf.Max(0f, gap - MinimumGap));
+                        break;
+                    }
+                    travelled += length;
+                    segmentStart = end;
                 }
             }
-
-            return false;
         }
 
         private bool IsCrossTrafficApproaching(RoadNode intersectionNode)
@@ -498,13 +555,21 @@ namespace OutsiderDriver.Vehicles
 
             // Check if arrived at the authored waypoint. The car may pass beside the node in its lane,
             // so this is measured to the node while steering uses the lane-parallel target.
-            if (distanceToNode <= arrivalRadius)
+            bool terminalPoseClear = true;
+            if (_currentPathIndex == _activePath.Count - 1 && distanceToNode <= arrivalRadius)
+            {
+                GetFollowingLimit(directionToTarget.sqrMagnitude > 0.0001f ? directionToTarget.normalized : _forwardGroundDirection,
+                    null, out _, out float terminalClearTravel);
+                terminalPoseClear = (GetLaneEndGround(projection, targetNode) - currentGround).magnitude <= terminalClearTravel;
+            }
+            if (distanceToNode <= arrivalRadius && terminalPoseClear)
             {
                 if (_reservedNode == targetNode)
                 {
                     ReleaseReservedNode();
                 }
 
+                _idleElevation = targetNode.ElevationLevel;
                 OnWaypointPassed?.Invoke(targetNode);
                 _currentPathIndex++;
 
@@ -537,16 +602,29 @@ namespace OutsiderDriver.Vehicles
             // Update facing direction
             UpdateIsometricFacing(_forwardGroundDirection);
 
-            // Evaluate forward sensor and intersection right-of-way rules
-            _isYielding = ShouldYield(targetNode, _forwardGroundDirection, distanceToNode);
-            if (_isYielding)
+            GetFollowingLimit(_forwardGroundDirection,
+                distanceToNode <= _intersectionYieldDistance ? targetNode : null,
+                out float followingSpeed, out float clearTravel);
+            _isYielding = EvaluateYield(targetNode, distanceToNode, followingSpeed);
+            // ShouldYield remains the public compatibility query. Following is continuous;
+            // only an actual right-of-way conflict commands a full stop.
+            bool intersectionBlocked = distanceToNode <= _intersectionYieldDistance
+                && (!targetNode.CanVehicleEnter(this)
+                    || (targetNode.Priority == RoadNodePriority.YieldIntersection && IsCrossTrafficApproaching(targetNode)));
+            float targetSpeed = intersectionBlocked ? 0f : followingSpeed;
+            // A moving queue may follow at a reduced speed, but cannot pass an unowned
+            // junction. Stop before waypoint advancement and reacquire once the queue clears.
+            if (targetNode.IsIntersection && targetNode.OccupyingVehicle != this)
             {
-                ApplyDeceleration(deltaTime);
+                float entryTravel = Mathf.Max(0f, distanceToNode - arrivalRadius - 0.1f);
+                clearTravel = Mathf.Min(clearTravel, entryTravel);
+                targetSpeed = Mathf.Min(targetSpeed, Mathf.Sqrt(2f * _deceleration * entryTravel));
             }
-            else
-            {
-                _currentSpeed = Mathf.MoveTowards(_currentSpeed, _maxSpeed, _acceleration * deltaTime);
-            }
+            _currentSpeed = Mathf.MoveTowards(_currentSpeed, targetSpeed,
+                (targetSpeed < _currentSpeed ? _deceleration : _acceleration) * deltaTime);
+            // Last-resort discrete-step guard for abrupt stops / long frames. Never teleport
+            // to repair an existing overlap; bound new travel to the remaining free gap.
+            _currentSpeed = Mathf.Min(_currentSpeed, clearTravel / deltaTime);
 
             if (_currentSpeed > 0f)
             {
