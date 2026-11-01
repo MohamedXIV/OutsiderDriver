@@ -22,7 +22,7 @@ namespace OutsiderDriver.Vehicles
         private bool _curbFailed;
 
         public float WidthMeters => _carModel != null ? _carModel.WidthMeters : 2f;
-        private float CurbSpeed => _carModel != null ? _carModel.CurbSpeed : 2f;
+        private float CurbSpeed => Mathf.Min(_maxSpeed, _carModel != null ? _carModel.CurbSpeed : 2f);
         public TaxiStopAnchor ParkedStop => _curbMotion == CurbMotion.Parked ? _parkedStop : null;
         public bool IsCurbManeuvering => _curbMotion == CurbMotion.PullIn || _curbMotion == CurbMotion.PullOut;
         public bool HasPendingStopMotion => _stopRouting || IsCurbManeuvering || _curbContinuationPath != null;
@@ -229,6 +229,7 @@ namespace OutsiderDriver.Vehicles
             if (_curbMotion == CurbMotion.Parked)
             {
                 _currentSpeed = 0f;
+                UpdateVisualHeading(deltaTime);
                 if (_curbContinuationPath == null) return true;
                 if (_parkedStop == null || !_parkedStop.IsPrepared) { FailStopMotion(); return true; }
                 if (!DepartureLaneClear(_parkedStop)) { _isYielding = true; return true; }
