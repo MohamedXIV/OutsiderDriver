@@ -32,6 +32,12 @@ namespace OutsiderDriver.Data
         public float MinimumGapMeters => Mathf.Max(0.1f, _minimumGapMeters);
         public float TimeHeadwaySeconds => Mathf.Max(0.1f, _timeHeadwaySeconds);
 
+        [Header("Authored Turns")]
+        [Min(0.1f)] [SerializeField] private float _maximumLateralAcceleration = 2.5f;
+        [Min(1f)] [SerializeField] private float _visualHeadingDegreesPerSecond = 180f;
+        public float MaximumLateralAcceleration => Mathf.Max(0.1f, _maximumLateralAcceleration);
+        public float VisualHeadingDegreesPerSecond => Mathf.Max(1f, _visualHeadingDegreesPerSecond);
+
         [Header("Capacity & Visuals")]
         [Range(1, 6)]
         [SerializeField] private int _passengerCapacity = 2;
