@@ -19,7 +19,7 @@ You are an illegal human resident living under a cover identity in a non-human c
 - **City:** ordinary activity and believable local life without needing a detailed simulator running for every resident.
 - **Content:** **data-driven by default** where practical: stable IDs (`district_01`, etc.) independent of editable names, candidate names, lore, world positions/bounds, relevant references and authored metadata.
 
-**Repository review (October 24, 2026):** The Unity project now has authored C# runtime foundations for vehicle movement/traffic, road routing, ride handling, home/on-foot, dialogue, localization, audio, portraits and related EditMode tests. This is evidence of code presence, **not independent verification of Gemini's reported 46/46 test result or a finished playable city**. Code from earlier Godot and Babylon projects is not migrated.
+**Repository status (November 1, 2026):** The authored Unity scene has a repeatable procedural-ride taxi shift, player-operated HUD, metric fares and a genuine two-ride production PlayMode test; latest verified GitHub code baseline `27ecf2e` (earlier reported 89/89 EditMode, 2/2 PlayMode). **Do not equate these technical results with human-approved traffic:** safe curbside stop placement and believable car-following remain pending [#27](https://github.com/MohamedXIV/OutsiderDriver/issues/27) / [#28](https://github.com/MohamedXIV/OutsiderDriver/issues/28). Owner acceptance [#22](https://github.com/MohamedXIV/OutsiderDriver/issues/22) and P0 Epic [#17](https://github.com/MohamedXIV/OutsiderDriver/issues/17) remain open. Historical Godot/Babylon code is not migrated.
 
 ## Canonical documentation
 
@@ -30,7 +30,8 @@ You are an illegal human resident living under a cover identity in a non-human c
 | **[World & Content Data Contract](docs/WORLD_CONTENT_DATA_CONTRACT.md)** | Non-negotiable real 2D isometric representation; stable IDs and editable authored world metadata; distinction from procedural generation |
 | **[City Scale & Street Standards](docs/CITY_SCALE_AND_STREET_STANDARDS.md)** | Approved 1m logical ground cells; nominal car, lane and sidewalk widths; full-width streets vs lane-aware navigation; 2D iso Editor and visual-calibration rules |
 | **[Systemic Open-World & Ride Demand](docs/SYSTEMIC_OPEN_WORLD_AND_RIDE_DEMAND.md)** | Mandatory procedural work offers, open-world taxi gameplay, grounded passenger and route selection, and P0 acceptance |
-| **[Roadmap & Active Epic](docs/ROADMAP.md)** | Active playable taxi milestone, work sequencing, dependencies and future follow-ons |
+| **[Roadmap & Current Issues](docs/ROADMAP.md)** | Verified completed taxi foundation, outstanding owner acceptance, P0 traffic blockers, and staged road/transit delivery |
+| **[Traffic & Transportation](docs/TRAFFIC_AND_TRANSPORTATION.md)** | Safe curbside taxi stops, car following, turns/signals, buses, recessed bus bays, authored bridges, tram and elevated monorail |
 | **[Systems Architecture](docs/SYSTEMS_ARCHITECTURE.md)** | Canonical technical blueprint: VContainer DI, TimeService ticks, GTA-style traffic bubble, Ink narrative engine, UI Toolkit MVP, and localization |
 | **[Visual Direction](docs/VISUAL_DIRECTION.md)** | Bright alien retro-futurism, architecture, vehicles, people, cozy home, user-supplied reference interpretations and art-production unknowns |
 | **[Engineering Principles](docs/ENGINEERING_PRINCIPLES.md)** | Unity-native 2D approach, clean production systems, performance validation, and previous mistakes to avoid |
