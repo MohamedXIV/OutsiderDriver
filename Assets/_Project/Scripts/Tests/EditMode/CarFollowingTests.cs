@@ -109,7 +109,7 @@ namespace OutsiderDriver.Tests.EditMode
             var junction = Node("junction", 10, 0);
             junction.Priority = RoadNodePriority.YieldIntersection;
             junction.IntersectionClearanceRadius = 9;
-            var follower = Car("follower", 3);
+            var follower = Car("follower", -3);
             follower.NavigateAlongPath(new[] { junction, _end });
             follower.TickMovement(Dt);
             Assert.AreSame(follower, junction.OccupyingVehicle);
@@ -190,6 +190,52 @@ namespace OutsiderDriver.Tests.EditMode
             var parked = Car("parked", laneX, 3); parked.CancelRoute();
             follower.TickMovement(Dt);
             Assert.AreEqual(blocked, follower.IsYielding);
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void CommittedOwner_BrakingForLeaderRetainsConflictUntilRearClears(bool reverse)
+        {
+            var junction = Node("junction", 10, 0); junction.Priority = RoadNodePriority.YieldIntersection;
+            junction.IntersectionClearanceRadius = 3;
+            var owner = Car("owner", 6); owner.NavigateAlongPath(new[] { junction, _end });
+            owner.TickMovement(Dt);
+            Assert.AreSame(owner, junction.OccupyingVehicle);
+            var stopped = Car("stopped", 14); stopped.Stop();
+            var north = Node("north", 10, 1000);
+            var crossing = Car("crossing", 10, -12); crossing.NavigateAlongPath(new[] { junction, north });
+            for (int i = 0; i < 300; i++)
+            {
+                if (reverse) crossing.TickMovement(Dt);
+                owner.TickMovement(Dt);
+                if (!reverse) crossing.TickMovement(Dt);
+                Assert.AreSame(owner, junction.OccupyingVehicle, "A slowing committed owner must retain the conflict.");
+            }
+            stopped.gameObject.SetActive(false);
+            for (int i = 0; i < 1000; i++)
+            {
+                if (reverse) crossing.TickMovement(Dt);
+                owner.TickMovement(Dt);
+                if (!reverse) crossing.TickMovement(Dt);
+                if (X(owner) <= 15.25f) Assert.AreSame(owner, junction.OccupyingVehicle);
+            }
+            Assert.Greater(_network.GroundProjection.WorldToGround(crossing.transform.position).y, 10);
+        }
+
+        [Test]
+        public void RouteStartingInsideOccupiedWaypoint_CannotBypassOwnership()
+        {
+            var junction = Node("junction", 10, 0); junction.Priority = RoadNodePriority.YieldIntersection;
+            var token = new object(); junction.TryReserveIntersection(token);
+            var car = Car("insideArrival", 9.7f); car.NavigateAlongPath(new[] { junction, _end });
+            for (int i = 0; i < 100; i++) car.TickMovement(Dt);
+            Assert.AreSame(junction, car.CurrentTargetNode);
+            Assert.AreSame(token, junction.OccupyingVehicle);
+            Assert.That(X(car), Is.EqualTo(9.7f).Within(0.001f));
+            junction.ReleaseIntersection(token);
+            car.TickMovement(Dt);
+            Assert.AreSame(_end, car.CurrentTargetNode);
+            Assert.AreSame(car, junction.OccupyingVehicle, "Waypoint passing is not rear clearance.");
         }
 
         private float X(VehicleController car) => _network.GroundProjection.WorldToGround(car.transform.position).x;

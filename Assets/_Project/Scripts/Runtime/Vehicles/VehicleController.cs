@@ -54,6 +54,8 @@ namespace OutsiderDriver.Vehicles
         private float TimeHeadway => _carModel != null ? _carModel.TimeHeadwaySeconds : 1.2f;
         private float _idleElevation;
         private RoadNode _reservedNode;
+        private bool _junctionCommitted;
+        private bool _passedReservedNode;
         private int _laneMergePathIndex = -1;
         private bool _laneMergeComplete;
 
@@ -189,6 +191,7 @@ namespace OutsiderDriver.Vehicles
         public void TickMovement(float deltaTime)
         {
             if (deltaTime <= 0f) return;
+            UpdateReservationClearance();
 
             if (_isPaused || !HasActiveRoute)
             {
@@ -270,7 +273,8 @@ namespace OutsiderDriver.Vehicles
                 return false;
             }
 
-            ReleaseReservedNode();
+            // A route change/cancellation is not physical clearance of a junction.
+            if (!_junctionCommitted) ReleaseReservedNode();
             _activePath.Clear();
             for (int i = 0; i < path.Count; i++)
             {
@@ -308,7 +312,8 @@ namespace OutsiderDriver.Vehicles
         public void CancelRoute()
         {
             _idleElevation = TrafficElevation;
-            ReleaseReservedNode();
+            // A route change/cancellation is not physical clearance of a junction.
+            if (!_junctionCommitted) ReleaseReservedNode();
             _activePath.Clear();
             _currentPathIndex = 0;
             _isYielding = false;
@@ -335,55 +340,48 @@ namespace OutsiderDriver.Vehicles
 
         private bool EvaluateYield(RoadNode upcomingNode, float distanceToNode, float followingSpeed)
         {
-            bool approachingIntersection = upcomingNode != null && distanceToNode <= _intersectionYieldDistance;
+            if (upcomingNode == null || !upcomingNode.IsIntersection)
+                return followingSpeed < _maxSpeed - 0.01f;
 
-            // 1. Check intersection right-of-way before the forward sensor. Once this vehicle wins
-            // the uncontrolled-intersection tie-break, a stationary crossing car waiting at the
-            // same node must not read as an in-lane obstacle, or both cars deadlock forever.
-            if (approachingIntersection)
-            {
-                if (upcomingNode.Priority == RoadNodePriority.YieldIntersection)
-                {
-                    // Must yield if another vehicle has reserved the intersection or is crossing on a main artery
-                    if (!upcomingNode.CanVehicleEnter(this) || IsCrossTrafficApproaching(upcomingNode))
-                    {
-                        return true;
-                    }
-                }
-                else if (upcomingNode.IsIntersection && !upcomingNode.CanVehicleEnter(this))
-                {
-                    // Even on a main artery, do not drive through a node actively occupied by another vehicle
-                    return true;
-                }
-            }
+            // Commitment is physical occupancy, not a speed or waypoint event. A committed
+            // owner can slow/stop in the junction without granting perpendicular clearance.
+            if (_reservedNode == upcomingNode && _junctionCommitted)
+                return followingSpeed < _maxSpeed - 0.01f;
+            if (_reservedNode != null && _junctionCommitted)
+                return true; // retain the previous conflict until the rear has cleared it
 
-            // Check following before claiming the junction (6d67cb6). A queue must not
-            // acquire or retain a reservation while blocked on its approach.
+            float entryRadius = upcomingNode.IntersectionClearanceRadius + LengthMeters * 0.5f;
+            float reserveDistance = Mathf.Max(_intersectionYieldDistance, entryRadius + MinimumGap);
+            if (distanceToNode > reserveDistance) return followingSpeed < _maxSpeed - 0.01f;
+
+            if (!upcomingNode.CanVehicleEnter(this)
+                || (upcomingNode.Priority == RoadNodePriority.YieldIntersection && IsCrossTrafficApproaching(upcomingNode)))
+                return true;
+
             if (followingSpeed < _maxSpeed - 0.01f)
             {
-                ReleaseReservedNode();
+                // Only uncommitted blocked approaches may surrender a speculative reservation.
+                if (!_junctionCommitted) ReleaseReservedNode();
                 return true;
             }
-
-            // 3. Reserve the intersection once within clearance radius, clear of forward obstacles,
-            // and allowed to enter.
-            if (approachingIntersection && distanceToNode <= upcomingNode.IntersectionClearanceRadius)
+            if (_reservedNode != upcomingNode)
             {
-                if (_reservedNode != upcomingNode)
-                {
-                    ReleaseReservedNode();
-                    if (upcomingNode.TryReserveIntersection(this))
-                    {
-                        _reservedNode = upcomingNode;
-                    }
-                    else
-                    {
-                        return true;
-                    }
-                }
+                ReleaseReservedNode();
+                if (!upcomingNode.TryReserveIntersection(this)) return true;
+                _reservedNode = upcomingNode;
+                _passedReservedNode = false;
             }
-
+            if (distanceToNode <= entryRadius) _junctionCommitted = true;
             return false;
+        }
+
+        private void UpdateReservationClearance()
+        {
+            if (_reservedNode == null || !_passedReservedNode) return;
+            float distance = (GroundProjection.WorldToGround(transform.position)
+                - GroundProjection.WorldToGround(_reservedNode.Position)).magnitude;
+            if (distance > _reservedNode.IntersectionClearanceRadius + LengthMeters * 0.5f)
+                ReleaseReservedNode();
         }
 
         private float TrafficElevation
@@ -562,11 +560,19 @@ namespace OutsiderDriver.Vehicles
                     null, out _, out float terminalClearTravel);
                 terminalPoseClear = (GetLaneEndGround(projection, targetNode) - currentGround).magnitude <= terminalClearTravel;
             }
-            if (distanceToNode <= arrivalRadius && terminalPoseClear)
+            // Ownership checks precede *all* waypoint advancement, including a route
+            // beginning inside the arrival radius of somebody else's reserved junction.
+            GetFollowingLimit(directionToTarget.sqrMagnitude > 0.0001f ? directionToTarget.normalized : _forwardGroundDirection,
+                distanceToNode <= _intersectionYieldDistance ? targetNode : null,
+                out float approachFollowingSpeed, out _);
+            EvaluateYield(targetNode, distanceToNode, approachFollowingSpeed);
+            bool ownsWaypoint = !targetNode.IsIntersection || targetNode.OccupyingVehicle == this;
+            if (distanceToNode <= arrivalRadius && terminalPoseClear && ownsWaypoint)
             {
                 if (_reservedNode == targetNode)
                 {
-                    ReleaseReservedNode();
+                    _junctionCommitted = true;
+                    _passedReservedNode = true;
                 }
 
                 _idleElevation = targetNode.ElevationLevel;
@@ -608,15 +614,15 @@ namespace OutsiderDriver.Vehicles
             _isYielding = EvaluateYield(targetNode, distanceToNode, followingSpeed);
             // ShouldYield remains the public compatibility query. Following is continuous;
             // only an actual right-of-way conflict commands a full stop.
-            bool intersectionBlocked = distanceToNode <= _intersectionYieldDistance
-                && (!targetNode.CanVehicleEnter(this)
-                    || (targetNode.Priority == RoadNodePriority.YieldIntersection && IsCrossTrafficApproaching(targetNode)));
+            bool intersectionBlocked = targetNode.IsIntersection && targetNode.OccupyingVehicle != this
+                && distanceToNode <= Mathf.Max(_intersectionYieldDistance,
+                    targetNode.IntersectionClearanceRadius + LengthMeters * 0.5f + MinimumGap);
             float targetSpeed = intersectionBlocked ? 0f : followingSpeed;
             // A moving queue may follow at a reduced speed, but cannot pass an unowned
             // junction. Stop before waypoint advancement and reacquire once the queue clears.
             if (targetNode.IsIntersection && targetNode.OccupyingVehicle != this)
             {
-                float entryTravel = Mathf.Max(0f, distanceToNode - arrivalRadius - 0.1f);
+                float entryTravel = Mathf.Max(0f, distanceToNode - targetNode.IntersectionClearanceRadius - LengthMeters * 0.5f - 0.1f);
                 clearTravel = Mathf.Min(clearTravel, entryTravel);
                 targetSpeed = Mathf.Min(targetSpeed, Mathf.Sqrt(2f * _deceleration * entryTravel));
             }
@@ -637,6 +643,10 @@ namespace OutsiderDriver.Vehicles
 
                 Vector2 groundMovement = _forwardGroundDirection * step;
                 transform.position += (Vector3)projection.GroundDeltaToWorld(groundMovement);
+                if (_reservedNode != null && !_passedReservedNode
+                    && (projection.WorldToGround(transform.position) - projection.WorldToGround(_reservedNode.Position)).magnitude
+                        <= _reservedNode.IntersectionClearanceRadius + LengthMeters * 0.5f)
+                    _junctionCommitted = true;
             }
         }
 
@@ -727,6 +737,8 @@ namespace OutsiderDriver.Vehicles
                 _reservedNode.ReleaseIntersection(this);
                 _reservedNode = null;
             }
+            _junctionCommitted = false;
+            _passedReservedNode = false;
         }
 
         private void ApplyDeceleration(float deltaTime)
