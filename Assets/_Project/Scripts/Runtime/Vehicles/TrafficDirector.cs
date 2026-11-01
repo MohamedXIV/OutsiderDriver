@@ -342,13 +342,28 @@ namespace OutsiderDriver.Vehicles
             RoadNode start = currentNode ?? _roadNetwork.FindNearestNode(vehicle.transform.position);
             var allNodes = _roadNetwork.AllNodes;
 
-            // Pick a valid destination distinct from start
+            // Pick a valid destination distinct from start, avoiding dead-end bays and occupied terminals
             int startIndex = Random.Range(0, allNodes.Count);
-            for (int i = 0; i < allNodes.Count; i++)
+            for (int pass = 0; pass < 2; pass++)
             {
-                var candidate = allNodes[(startIndex + i) % allNodes.Count];
-                if (candidate != null && candidate != start)
+                bool allowDeadEnds = pass == 1;
+                for (int i = 0; i < allNodes.Count; i++)
                 {
+                    var candidate = allNodes[(startIndex + i) % allNodes.Count];
+                    if (candidate == null || candidate == start) continue;
+
+                    if (!allowDeadEnds && (candidate.ConnectedNodes.Count <= 1 || candidate.PieceType == RoadPieceType.EndCap))
+                    {
+                        continue;
+                    }
+
+                    if (!IsGroundPositionClearOfVehicles(
+                        _roadNetwork.GroundProjection.WorldToGround(candidate.Position),
+                        _spawnClearanceRadius * _spawnClearanceRadius))
+                    {
+                        continue;
+                    }
+
                     if (vehicle.NavigateTo(candidate))
                     {
                         return;

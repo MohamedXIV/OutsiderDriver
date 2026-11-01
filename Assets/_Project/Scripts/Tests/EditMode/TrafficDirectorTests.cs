@@ -86,6 +86,54 @@ namespace OutsiderDriver.Tests.EditMode
             Assert.IsTrue(firstSpawned.gameObject.activeSelf);
         }
 
+        [Test]
+        public void EvaluateBubble_AvoidsRoutingAmbientTrafficIntoOccupiedOrDeadEndBays()
+        {
+            var centerGo = CreateTrackedObject("BubbleCenter", Vector3.zero);
+            var networkGo = CreateTrackedObject("RoadNetwork", Vector3.zero);
+            var network = networkGo.AddComponent<RoadNetwork>();
+
+            var deadEndBay = CreateNode(networkGo.transform, "DeadEndBay", Vector3.zero);
+            deadEndBay.PieceType = RoadPieceType.EndCap;
+
+            var junction = CreateNode(networkGo.transform, "Junction", new Vector3(10f, 0f, 0f));
+            var ringA = CreateNode(networkGo.transform, "RingA", new Vector3(20f, 0f, 0f));
+            var ringB = CreateNode(networkGo.transform, "RingB", new Vector3(20f, 10f, 0f));
+
+            deadEndBay.AddConnection(junction);
+            junction.AddConnection(deadEndBay);
+            junction.AddConnection(ringA);
+            ringA.AddConnection(junction);
+            ringA.AddConnection(ringB);
+            ringB.AddConnection(ringA);
+            ringB.AddConnection(junction);
+            junction.AddConnection(ringB);
+            network.RebuildNetwork();
+
+            var parkedTaxiGo = CreateTrackedObject("ParkedTaxi", deadEndBay.Position);
+            var parkedTaxi = parkedTaxiGo.AddComponent<VehicleController>();
+            parkedTaxi.Construct(network);
+            VehicleController.RegisterActiveVehicle(parkedTaxi);
+
+            var directorGo = CreateTrackedObject("TrafficDirector", Vector3.zero);
+            var director = directorGo.AddComponent<TrafficDirector>();
+            director.Construct(network, parkedTaxi);
+            director.MinSpawnRadius = 8f;
+            director.MaxSpawnRadius = 30f;
+            director.DespawnRadius = 50f;
+            director.MaxActiveVehicles = 2;
+
+            for (int step = 0; step < 20; step++)
+            {
+                director.EvaluateBubble();
+                for (int i = 0; i < director.ActiveAmbientVehicles.Count; i++)
+                {
+                    var v = director.ActiveAmbientVehicles[i];
+                    Assert.AreNotEqual(deadEndBay, v.DestinationNode, "Ambient traffic must not pick an occupied dead-end bay as its destination.");
+                }
+            }
+        }
+
         private RoadNetwork CreateTestRingRoadNetwork(out Transform centerTransform)
         {
             var centerGo = CreateTrackedObject("BubbleCenter", Vector3.zero);

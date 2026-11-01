@@ -152,6 +152,42 @@ namespace OutsiderDriver.Tests.EditMode
             Assert.IsFalse(northbound.HasActiveRoute, "Equal-distance northbound cross traffic must not deadlock at the junction.");
         }
 
+        [Test]
+        public void VehicleController_BlockedByStoppedLeadVehicle_DoesNotReserveIntersectionAhead()
+        {
+            var network = CreateMetricNetwork();
+            var south = CreateNode(network.transform, "South", 10, 0);
+            var center = CreateNode(network.transform, "Center", 10, 10);
+            center.Priority = RoadNodePriority.YieldIntersection;
+            center.IntersectionClearanceRadius = 7f;
+            var north = CreateNode(network.transform, "North", 10, 20);
+            var west = CreateNode(network.transform, "West", 0, 10);
+            var east = CreateNode(network.transform, "East", 20, 10);
+
+            Connect(south, center);
+            Connect(center, north);
+            Connect(west, center);
+            Connect(center, east);
+            network.RebuildNetwork();
+
+            // A stationary vehicle stopped at the curb of the junction (e.g. player taxi awaiting boarding)
+            var stoppedAtCurb = CreateVehicle("StoppedAtCurb", center.Position, network);
+            Assert.IsFalse(stoppedAtCurb.HasActiveRoute);
+
+            // An approaching vehicle behind it in the same lane must yield to the forward obstacle
+            // BEFORE claiming the intersection reservation, so cross traffic is not deadlocked forever.
+            var behindInLane = CreateVehicle("BehindInLane", CellWorld(10, 4), network);
+            Assert.IsTrue(behindInLane.NavigateTo(north));
+
+            for (int i = 0; i < 40; i++)
+            {
+                behindInLane.TickMovement(0.05f);
+            }
+
+            Assert.IsTrue(behindInLane.IsYielding, "Vehicle behind a stationary car at the junction must yield.");
+            Assert.IsNull(center.OccupyingVehicle, "A vehicle blocked by a forward obstacle must not hold the intersection reservation.");
+        }
+
         private static void Connect(RoadNode a, RoadNode b)
         {
             a.AddConnection(b);

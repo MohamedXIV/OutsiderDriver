@@ -342,29 +342,36 @@ namespace OutsiderDriver.Vehicles
                     // Even on a main artery, do not drive through a node actively occupied by another vehicle
                     return true;
                 }
+            }
 
-                // Reserve the intersection once within clearance radius and allowed to enter
-                if (distanceToNode <= upcomingNode.IntersectionClearanceRadius)
+            // 2. Check forward vehicle spacing sensor before reserving the intersection so a car
+            // blocked behind an in-lane obstacle does not claim and hold the junction while stopped.
+            if (IsVehicleBlockingAhead(
+                travelGroundDirection,
+                approachingIntersection ? upcomingNode : null))
+            {
+                return true;
+            }
+
+            // 3. Reserve the intersection once within clearance radius, clear of forward obstacles,
+            // and allowed to enter.
+            if (approachingIntersection && distanceToNode <= upcomingNode.IntersectionClearanceRadius)
+            {
+                if (_reservedNode != upcomingNode)
                 {
-                    if (_reservedNode != upcomingNode)
+                    ReleaseReservedNode();
+                    if (upcomingNode.TryReserveIntersection(this))
                     {
-                        ReleaseReservedNode();
-                        if (upcomingNode.TryReserveIntersection(this))
-                        {
-                            _reservedNode = upcomingNode;
-                        }
-                        else
-                        {
-                            return true;
-                        }
+                        _reservedNode = upcomingNode;
+                    }
+                    else
+                    {
+                        return true;
                     }
                 }
             }
 
-            // 2. Check forward vehicle spacing sensor against other active vehicles
-            return IsVehicleBlockingAhead(
-                travelGroundDirection,
-                approachingIntersection ? upcomingNode : null);
+            return false;
         }
 
         private bool IsVehicleBlockingAhead(Vector2 travelGroundDirection, RoadNode priorityIntersection = null)
