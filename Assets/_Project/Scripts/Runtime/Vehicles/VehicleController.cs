@@ -672,10 +672,13 @@ namespace OutsiderDriver.Vehicles
             }
             // Ownership checks precede *all* waypoint advancement, including a route
             // beginning inside the arrival radius of somebody else's reserved junction.
-            GetFollowingLimit(directionToTarget.sqrMagnitude > 0.0001f ? directionToTarget.normalized : _forwardGroundDirection,
-                distanceToNode <= _intersectionYieldDistance ? targetNode : null,
-                out float approachFollowingSpeed, out _);
-            EvaluateYield(targetNode, distanceToNode, approachFollowingSpeed);
+            if (_turnPath == null && distanceToNode <= arrivalRadius)
+            {
+                GetFollowingLimit(directionToTarget.sqrMagnitude > 0.0001f ? directionToTarget.normalized : _forwardGroundDirection,
+                    distanceToNode <= _intersectionYieldDistance ? targetNode : null,
+                    out float approachFollowingSpeed, out _);
+                EvaluateYield(targetNode, distanceToNode, approachFollowingSpeed);
+            }
             bool ownsWaypoint = !IsConflictNode(targetNode) || targetNode.OccupyingVehicle == this;
             if (_turnPath == null && distanceToNode <= arrivalRadius && terminalPoseClear && ownsWaypoint)
             {
