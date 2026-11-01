@@ -6,7 +6,6 @@ using Ink;
 using OutsiderDriver.Core.State;
 using OutsiderDriver.Data;
 using OutsiderDriver.Dialogue;
-using OutsiderDriver.Navigation;
 using OutsiderDriver.Rides;
 using OutsiderDriver.UI.Dialogue;
 using OutsiderDriver.Vehicles;
@@ -112,23 +111,12 @@ We are almost there, let me tell you one more thing. #speaker:Lyra #lang:Common 
             passenger.Initialize("res_lyra", "Lyra", "Vesperian", "Common", inkStoryJson: inkAsset);
             _spawnedObjects.Add(passenger);
 
-            var networkGo = new GameObject("RoadNetwork");
-            _spawnedObjects.Add(networkGo);
-            var network = networkGo.AddComponent<RoadNetwork>();
-
-            var nodePickup = CreateNode(networkGo.transform, "Pickup", Vector3.zero);
-            var nodeDropoff = CreateNode(networkGo.transform, "Dropoff", new Vector3(2f, 0f, 0f));
-            nodePickup.AddConnection(nodeDropoff);
-            network.RebuildNetwork();
-
-            var taxiGo = new GameObject("PlayerTaxi");
-            _spawnedObjects.Add(taxiGo);
-            var taxi = taxiGo.AddComponent<VehicleController>();
-            taxi.Construct(network);
-            VehicleController.RegisterActiveVehicle(taxi);
-
+            using var world = new TaxiStopTestFixture();
+            var taxi = world.Taxi();
+            Assert.IsTrue(taxi.NavigateToStop(world.Pickup));
+            TaxiStopTestFixture.DriveUntilStopped(taxi);
             var playerState = new PlayerStateService();
-            using var rideService = new RideLifecycleService(network, taxi, playerState);
+            using var rideService = new RideLifecycleService(world.Network, taxi, playerState, world.Time, world.Registry);
             var dialogueService = new InkDialogueService(playerState);
             var mockView = new MockDialogueView();
 
@@ -136,7 +124,7 @@ We are almost there, let me tell you one more thing. #speaker:Lyra #lang:Common 
             presenter.Start();
 
             // Offer, accept at pickup, and board passenger (which automatically starts passenger Ink dialogue)
-            Assert.IsTrue(rideService.TryOfferHail(passenger, nodePickup, nodeDropoff));
+            Assert.IsTrue(rideService.TryOfferHail(passenger, world.Pickup, world.Destination));
             Assert.IsTrue(rideService.AcceptHail());
             Assert.IsTrue(rideService.BoardPassenger());
 
@@ -145,24 +133,12 @@ We are almost there, let me tell you one more thing. #speaker:Lyra #lang:Common 
             Assert.IsFalse(mockView.ArrivalBannerVisible);
 
             // Drive taxi to destination while conversation is still waiting on player choice
-            for (int i = 0; i < 60 && taxi.HasActiveRoute; i++)
-            {
-                taxi.TickMovement(0.05f);
-            }
+            TaxiStopTestFixture.DriveUntilStopped(taxi);
 
             Assert.AreEqual(RidePhase.ArrivedAtDestination, rideService.CurrentPhase);
             Assert.IsTrue(dialogueService.IsConversationActive, "Arriving at destination must NOT cut off active passenger conversation.");
             Assert.IsTrue(mockView.IsVisible);
             Assert.IsTrue(mockView.ArrivalBannerVisible, "Presenter should display the gentle arrival notice while conversation continues.");
-        }
-
-        private RoadNode CreateNode(Transform parent, string name, Vector3 pos)
-        {
-            var go = new GameObject(name);
-            go.transform.position = pos;
-            go.transform.SetParent(parent);
-            _spawnedObjects.Add(go);
-            return go.AddComponent<RoadNode>();
         }
 
         private static string CompileInkToJson(string inkSource)

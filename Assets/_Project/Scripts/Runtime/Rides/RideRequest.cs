@@ -1,6 +1,7 @@
 using System;
 using OutsiderDriver.Data;
 using OutsiderDriver.Navigation;
+using OutsiderDriver.World;
 
 namespace OutsiderDriver.Rides
 {
@@ -13,6 +14,10 @@ namespace OutsiderDriver.Rides
         public PassengerDefinitionSO Passenger { get; }
         public RoadNode PickupNode { get; }
         public RoadNode DestinationNode { get; }
+        public TaxiStopAnchor PickupStop { get; }
+        public TaxiStopAnchor DestinationStop { get; }
+        public string PickupStopId { get; }
+        public string DestinationStopId { get; }
         public DistrictConfigSO District { get; }
         public float PlannedDistance { get; }
         public int QuotedBaseFare { get; }
@@ -23,7 +28,11 @@ namespace OutsiderDriver.Rides
             RoadNode destinationNode,
             float plannedDistance,
             int quotedBaseFare,
-            DistrictConfigSO district = null)
+            DistrictConfigSO district = null,
+            TaxiStopAnchor pickupStop = null,
+            TaxiStopAnchor destinationStop = null,
+            string pickupStopId = null,
+            string destinationStopId = null)
         {
             Passenger = passenger ?? throw new ArgumentNullException(nameof(passenger));
             PickupNode = pickupNode ?? throw new ArgumentNullException(nameof(pickupNode));
@@ -31,6 +40,10 @@ namespace OutsiderDriver.Rides
             PlannedDistance = Math.Max(0f, plannedDistance);
             QuotedBaseFare = Math.Max(0, quotedBaseFare);
             District = district;
+            PickupStop = pickupStop;
+            DestinationStop = destinationStop;
+            PickupStopId = pickupStopId ?? (pickupStop != null ? pickupStop.StopId : string.Empty);
+            DestinationStopId = destinationStopId ?? (destinationStop != null ? destinationStop.StopId : string.Empty);
         }
     }
 

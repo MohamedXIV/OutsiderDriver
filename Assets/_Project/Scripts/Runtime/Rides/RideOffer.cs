@@ -1,6 +1,7 @@
 using System;
 using OutsiderDriver.Data;
 using OutsiderDriver.Navigation;
+using OutsiderDriver.World;
 
 namespace OutsiderDriver.Rides
 {
@@ -14,6 +15,10 @@ namespace OutsiderDriver.Rides
         public PassengerDefinitionSO Passenger { get; }
         public RoadNode PickupNode { get; }
         public RoadNode DestinationNode { get; }
+        public TaxiStopAnchor PickupStop { get; }
+        public TaxiStopAnchor DestinationStop { get; }
+        public string PickupStopId { get; }
+        public string DestinationStopId { get; }
         public string PickupLocationId { get; }
         public string DestinationLocationId { get; }
         public DistrictConfigSO District { get; }
@@ -22,7 +27,7 @@ namespace OutsiderDriver.Rides
         public int CreatedAtWorldMinutes { get; }
         public int ExpiresAtWorldMinutes { get; }
 
-        public string Key => Passenger.PassengerId + "|" + PickupNode.NodeId + "|" + DestinationNode.NodeId;
+        public string Key => Passenger.PassengerId + "|" + PickupStopId + "|" + DestinationStopId;
 
         public RideOffer(
             string offerId,
@@ -35,12 +40,18 @@ namespace OutsiderDriver.Rides
             float plannedDistanceMeters,
             int quotedFare,
             int createdAtWorldMinutes,
-            int expiresAtWorldMinutes)
+            int expiresAtWorldMinutes,
+            TaxiStopAnchor pickupStop = null,
+            TaxiStopAnchor destinationStop = null)
         {
             OfferId = offerId ?? throw new ArgumentNullException(nameof(offerId));
             Passenger = passenger ?? throw new ArgumentNullException(nameof(passenger));
             PickupNode = pickupNode ?? throw new ArgumentNullException(nameof(pickupNode));
             DestinationNode = destinationNode ?? throw new ArgumentNullException(nameof(destinationNode));
+            PickupStop = pickupStop;
+            DestinationStop = destinationStop;
+            PickupStopId = pickupStop != null ? pickupStop.StopId : string.Empty;
+            DestinationStopId = destinationStop != null ? destinationStop.StopId : string.Empty;
             PickupLocationId = pickupLocationId ?? string.Empty;
             DestinationLocationId = destinationLocationId ?? string.Empty;
             District = district;

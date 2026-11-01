@@ -139,8 +139,8 @@ namespace OutsiderDriver.UI.TaxiShift
 
                 bool activated = _rideService.TryOfferHail(
                         offer.Passenger,
-                        offer.PickupNode,
-                        offer.DestinationNode,
+                        offer.PickupStop,
+                        offer.DestinationStop,
                         offer.District)
                     && _rideService.AcceptHail();
 
@@ -159,7 +159,9 @@ namespace OutsiderDriver.UI.TaxiShift
 
                 if (!_demandService.ConsumeReservedOffer(offer))
                 {
+                    _rideService.CancelActiveRide();
                     _demandService.ReleaseReservedOffer(offer);
+                    SetFeedback(ShiftFeedback.OfferUnavailable);
                 }
 
                 RequestRender();
@@ -377,11 +379,17 @@ namespace OutsiderDriver.UI.TaxiShift
             return new TaxiActiveRideCard(
                 ResolvePassengerLabel(request.Passenger),
                 FormatCredits(request.QuotedBaseFare),
-                Localize("hud_pickup_row", ResolveNodeLabel(request.PickupNode)),
-                Localize("hud_destination_row", ResolveNodeLabel(request.DestinationNode)),
+                Localize("hud_pickup_row", ResolveStopLabel(request.PickupStop, request.PickupNode)),
+                Localize("hud_destination_row", ResolveStopLabel(request.DestinationStop, request.DestinationNode)),
                 PhaseLabel(phase),
                 phase == RidePhase.AwaitingBoarding,
                 phase == RidePhase.ArrivedAtDestination);
+        }
+
+        private string ResolveStopLabel(TaxiStopAnchor stop, RoadNode fallbackNode)
+        {
+            var location = stop != null ? stop.Location : null;
+            return location != null ? ResolveLocationLabel(location.LocationId) : ResolveNodeLabel(fallbackNode);
         }
 
         private string ResolveOfferPickupLabel(RideOffer offer)
