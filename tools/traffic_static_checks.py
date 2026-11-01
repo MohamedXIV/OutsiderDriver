@@ -36,7 +36,9 @@ assert not protected, f'Unexpected scene/asset/package/assembly changes: {protec
 subprocess.run(['git', 'diff', '--check', base], check=True)
 print(f'Protected scene/assets/packages/assemblies unchanged against {base}; whitespace clean')
 
-for suite in ('CarFollowingTests', 'RoadTurnPathTests', 'TrafficSignalTests', 'TrafficBehaviorIntegrationTests'):
+for suite in ('CarFollowingTests', 'RoadTurnPathTests', 'TrafficSignalTests', 'TrafficBehaviorIntegrationTests',
+              'TaxiStopAnchorTests', 'CurbTaxiIntegrationTests', 'RideLifecycleServiceTests',
+              'RideDemandServiceTests', 'RideGroundMetricTests', 'TaxiShiftPresenterTests', 'DialoguePresenterTests'):
     source = Path(f'Assets/_Project/Scripts/Tests/EditMode/{suite}.cs').read_text()
     cases = source.count('[Test]') + source.count('[TestCase(')
     print(f'{suite}: {cases} authored cases; NOT EXECUTED')

@@ -1,5 +1,7 @@
 # Traffic behavior Batch A — #28, #29, #30
 
+> Batch B now integrates authored curb stops and taxi gameplay. Use [TRAFFIC_BATCH_AB_INTEGRATION.md](TRAFFIC_BATCH_AB_INTEGRATION.md) as the single current local authoring and Unity QA gate; notes below retain Batch A history.
+
 ## Delivery state and authority
 
 Continues draft PR #35 from `759bb16`, with remote main `9777338` inspected on 2026-11-01. Owner explicitly requested this combined code batch and deferred **all Unity compilation, Editor, EditMode, PlayMode and Game View execution** to one later local integration phase. P-024/P-031/P-032/P-036/P-037 and Traffic & Transportation A2/B1/B2 apply. No art/PPU/traffic-side/transit product decision is inferred. No scene, road topology, package or asset placement is changed. This is authorable runtime support plus regression source, not shipped/visually accepted production signals or turns. All referenced issues remain open.
