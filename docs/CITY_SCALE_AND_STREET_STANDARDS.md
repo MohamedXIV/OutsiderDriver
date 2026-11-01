@@ -22,6 +22,8 @@
 | Optional 3 lanes / direction | **22 m total baseline** | 6 × 3 m lanes + 4 m sidewalks |
 | Optional 4 lanes / direction | **28 m total baseline** | 8 × 3 m lanes + 4 m sidewalks |
 
+**Traffic/Transit addendum (P-037/P-038, 2026-11-01):** A taxi passenger's `RoadNode` is *not* a valid stopping pose by itself. Actual boarding/dropoff must use designer-authored safe curb/lay-by anchors separate from intersections, with correct approach and driveable space. An inset **bus bay/recess** must be authored as an actual street/curb/sidewalk geometry change; provide any needed **additional pedestrian frontage/width** rather than consuming the baseline 2 m clear walking space. Existing road classes do not automatically include transit bays, tramway or monorail supports. Design guidance: [Traffic & Transportation](TRAFFIC_AND_TRANSPORTATION.md).
+
 These are **easy-to-author nominal conventions** rather than civil-engineering codes, hard legal minima or a promise of eight-lane roads. A larger sidewalk, curb setback, parking bay, median, cycle track, bus stop, frontage, service access or traffic island **adds its own space** beyond the simple cross-section above. Narrow lanes/alleys and context-specific streets are exceptions designers may author deliberately and visibly; do not silently apply a universal 10 m street template everywhere. Different-sized vehicles and different alien bodies may justify later local adjustments.
 
 Keep a small, reusable **street-class cross-section** definition if/when implementation needs shared widths; don't scatter magic numbers across separate visuals, navigation and data assets. No generalized city generator is authorized.
