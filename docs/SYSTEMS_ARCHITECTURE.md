@@ -119,6 +119,8 @@ flowchart LR
    * A `TrafficDirector` continuously queries the `RoadNetwork` within an active radius (e.g. 35 meters) around the player's taxi or character. Bubble radii and spawn clearance are ground metres.
    * Ambient ground-contact vehicles and passersby spawn from an `ObjectPool` at road edges entering the bubble.
    * When an entity leaves the radius or passes behind the camera, it is returned to the pool immediately.
+**Current-state caveat (owner P-037/P-038, 2026-11-01):** Existing binary front sensing and junction reservation are a technical foundation, **not** believable car-following/stop behavior. For initial acceptance, support slow-leader spacing, progressive braking, safe physical curbside stops independent of junction nodes and no intersection reservation while boarding. Follow [Traffic & Transportation](TRAFFIC_AND_TRANSPORTATION.md) and [#26](https://github.com/MohamedXIV/OutsiderDriver/issues/26) for staged turns, signals, buses, tram, bridges and monorail. Their authored geometry belongs to the human-edited 2D city, not a procedural road generator.
+
 2. **Intersection Right-of-Way & Yielding:**
    * Road nodes at intersections define priority rules (e.g., main street vs. side alley, roundabouts).
    * Vehicles cast short forward 2D sensor rays; if another vehicle is occupying the intersection node with higher priority, the vehicle decelerates and yields cleanly.
