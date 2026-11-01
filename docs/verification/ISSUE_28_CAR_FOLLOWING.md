@@ -1,5 +1,7 @@
 # Issue #28 — implementation and local verification
 
+> Batch A supersedes the initial reservation/trajectory integration notes below. See [TRAFFIC_BATCH_A.md](TRAFFIC_BATCH_A.md) for the current implementation, cancellation semantics, review fixes and unified deferred Unity QA plan.
+
 Authority: P-024/P-031/P-037, Traffic & Transportation §A2; Epic #26.
 Base: remote main `97773386de5f738e3957733dab4c0610d1e2c104` (read/fetched during this task); no overlapping open PRs at inspection.
 
