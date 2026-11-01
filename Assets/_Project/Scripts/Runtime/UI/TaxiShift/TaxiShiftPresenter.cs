@@ -35,6 +35,8 @@ namespace OutsiderDriver.UI.TaxiShift
         private bool _activationInProgress;
         private ShiftFeedback _feedback = ShiftFeedback.None;
         private int _feedbackCredits;
+        private int _feedbackBaseFare;
+        private int _feedbackTip;
 
         [Inject]
         public TaxiShiftPresenter(
@@ -229,7 +231,11 @@ namespace OutsiderDriver.UI.TaxiShift
 
         private void HandleRideCompleted(RideSettlementResult settlement)
         {
-            SetFeedback(ShiftFeedback.FareCollected, settlement.TotalCreditsEarned);
+            SetFeedback(
+                ShiftFeedback.FareCollected,
+                settlement.TotalCreditsEarned,
+                settlement.BaseFarePaid,
+                settlement.TipPaid);
             _demandService.TryGenerateOffer(out _);
             RequestRender();
         }
@@ -496,10 +502,12 @@ namespace OutsiderDriver.UI.TaxiShift
             return _localizationService.GetLocalizedString(LocalizationService.TableUI, key, args);
         }
 
-        private void SetFeedback(ShiftFeedback feedback, int credits = 0)
+        private void SetFeedback(ShiftFeedback feedback, int credits = 0, int baseFare = 0, int tip = 0)
         {
             _feedback = feedback;
             _feedbackCredits = credits;
+            _feedbackBaseFare = baseFare;
+            _feedbackTip = tip;
             RenderFeedback();
         }
 
@@ -508,7 +516,18 @@ namespace OutsiderDriver.UI.TaxiShift
             switch (_feedback)
             {
                 case ShiftFeedback.FareCollected:
-                    _view.SetFeedback(Localize("hud_fare_collected", FormatCredits(_feedbackCredits)));
+                    if (_feedbackTip > 0)
+                    {
+                        _view.SetFeedback(Localize(
+                            "hud_fare_collected_breakdown",
+                            FormatCredits(_feedbackCredits),
+                            _feedbackBaseFare,
+                            _feedbackTip));
+                    }
+                    else
+                    {
+                        _view.SetFeedback(Localize("hud_fare_collected", FormatCredits(_feedbackCredits)));
+                    }
                     break;
                 case ShiftFeedback.RideCancelled:
                     _view.SetFeedback(Localize("hud_ride_cancelled"));

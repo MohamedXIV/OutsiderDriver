@@ -223,6 +223,9 @@ namespace OutsiderDriver.Localization
             RegisterString(TableUI, "hud_fare_collected", "en", "Fare collected: {0}");
             RegisterString(TableUI, "hud_fare_collected", "ar", "تم تحصيل {0}");
 
+            RegisterString(TableUI, "hud_fare_collected_breakdown", "en", "Fare collected: {0} ({1} fare + {2} tip)");
+            RegisterString(TableUI, "hud_fare_collected_breakdown", "ar", "تم تحصيل {0} ({1} أجرة + {2} إكرامية)");
+
             RegisterString(TableUI, "hud_ride_cancelled", "en", "Ride ended without payment.");
             RegisterString(TableUI, "hud_ride_cancelled", "ar", "انتهت الرحلة دون دفع.");
 

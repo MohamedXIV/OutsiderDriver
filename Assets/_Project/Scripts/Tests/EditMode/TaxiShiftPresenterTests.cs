@@ -102,6 +102,7 @@ namespace OutsiderDriver.Tests.EditMode
             Assert.IsFalse(view.ActiveVisible);
             Assert.IsFalse(string.IsNullOrEmpty(view.Feedback));
             StringAssert.Contains("Fare collected", view.Feedback);
+            StringAssert.Contains("fare +", view.Feedback, "Settlement feedback must distinguish base fare and tip when a tip is paid.");
             Assert.IsFalse(view.NoWorkVisible);
             Assert.GreaterOrEqual(view.Offers.Count, 1, "Fresh work must appear after settlement without reloading.");
         }
