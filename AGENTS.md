@@ -2,7 +2,7 @@
 
 **Repository:** MohamedXIV/OutsiderDriver  
 **Engine:** Unity 6 / C# / 2D Isometric, currently **6000.6.0f1** in ProjectSettings/ProjectVersion.txt.  
-**Product authority date:** 2026-10-28.
+**Product authority date:** 2026-11-01.
 
 > **STOP AND READ BEFORE ANY DESIGN OR IMPLEMENTATION.** This is a **clean new game**, not a migration of either previous Outsider Driver repository. Do not infer scope, architecture, feature implementation or artist-approved specifications from old prototypes. The owner explicitly rejected systems fabricated by agents and temporary prototypes promoted into the permanent foundation.
 
@@ -12,10 +12,12 @@
 2. [docs/DECISIONS_AND_OPEN_QUESTIONS.md](docs/DECISIONS_AND_OPEN_QUESTIONS.md) — exactly what's approved, historical, suggested, unresolved or rejected.
 3. [docs/WORLD_CONTENT_DATA_CONTRACT.md](docs/WORLD_CONTENT_DATA_CONTRACT.md) — mandatory 2D isometric and data-driven world/content requirements.
 4. [docs/CITY_SCALE_AND_STREET_STANDARDS.md](docs/CITY_SCALE_AND_STREET_STANDARDS.md) — approved physical scale, street classes, lane-aware navigation and road-authoring rules (P-031–P-033).
-5. [docs/SYSTEMS_ARCHITECTURE.md](docs/SYSTEMS_ARCHITECTURE.md) — technical blueprint: VContainer DI, TimeService, GTA traffic bubble, Ink dialogue, UI Toolkit MVP.
-6. [docs/VISUAL_DIRECTION.md](docs/VISUAL_DIRECTION.md) — art intent, user image-reference descriptions, non-decisions.
-7. [docs/ENGINEERING_PRINCIPLES.md](docs/ENGINEERING_PRINCIPLES.md) — clean Unity approach, production rules and performance discipline.
-8. This repository's **actual current project and source**, open issues and PRs, before changing anything.
+5. [docs/TRAFFIC_AND_TRANSPORTATION.md](docs/TRAFFIC_AND_TRANSPORTATION.md) — approved safe taxi stops, lane-aware following, natural turns, traffic signals and handcrafted buses/tram/bridges/monorail (P-037/P-038).
+6. [docs/ROADMAP.md](docs/ROADMAP.md) — verified issue statuses, immediate blockers and stage order.
+7. [docs/SYSTEMS_ARCHITECTURE.md](docs/SYSTEMS_ARCHITECTURE.md) — technical blueprint: VContainer DI, TimeService, GTA traffic bubble, Ink dialogue, UI Toolkit MVP.
+8. [docs/VISUAL_DIRECTION.md](docs/VISUAL_DIRECTION.md) — art intent, user image-reference descriptions, non-decisions.
+9. [docs/ENGINEERING_PRINCIPLES.md](docs/ENGINEERING_PRINCIPLES.md) — clean Unity approach, production rules and performance discipline.
+10. This repository's **actual current project and source**, open issues and PRs, before changing anything.
 
 If your task touches only one narrow topic, read its relevant sections fully and cross-check the decision status. Do not use this short entry file as a replacement for the full detailed docs.
 
@@ -40,6 +42,8 @@ Everything implemented should strengthen that experience. If you cannot explain 
 **Currency is OPEN.** Earlier candidates **Rin, Tal, Vara** are suggestions only; `cr` / `credits` are temporary technical accounting labels, **not** an approved in-world name or symbol. Do not canonize any by inference.
 
 **5. SYSTEMIC OPEN-WORLD SANDBOX (P-034/P-035, 2026-10-28).** Procedural/systemic **ride offers and ordinary work are mandatory**, using valid road-connected places, clock, passenger/driver state and authored contextual rules. A single home→market scripted or static passenger sequence is only a test fixture, NOT the production taxi game. No mandatory job ladder or forced authored character sequence. Authored Ink/dialogue/content pools may coexist with generated work. **City geography, road/street layout and every building/placement MUST be hand-designed (P-036); no runtime or automated road/building layout generation.** The previous O-030 question is RESOLVED; do not reopen it or make a procedural/hybrid city generator. See [Systemic Sandbox Contract](docs/SYSTEMIC_OPEN_WORLD_AND_RIDE_DEMAND.md) and [Roadmap](docs/ROADMAP.md). The four-region brainstorm and provisional names remain non-canonical.
+
+**7. TRAFFIC & TRANSIT DEVELOPMENT (P-037/P-038, owner 2026-11-01).** The current ride loop is **technically playable but not yet traffic-comfort approved**. **NOW:** prevent taxi stopping/boarding at any busy intersection by introducing human-authored safe curb/lay-by stop positions **separate from navigational junction nodes**, and make ground cars actively adjust following speed and brake progressively around moving/stationary traffic. Both are P0 owner-acceptance blockers [#27](https://github.com/MohamedXIV/OutsiderDriver/issues/27) / [#28](https://github.com/MohamedXIV/OutsiderDriver/issues/28). **LATER:** natural turns [#29], traffic signals [#30], authored buses and recessed bus bays [#31], bridges [#32], tram [#33], monorail [#34]. The later features are **not** P0 blockers. No giant traffic engine, rigidbodies or generated roads/buildings. Follow [Traffic & Transportation](docs/TRAFFIC_AND_TRANSPORTATION.md), [Roadmap](docs/ROADMAP.md) and Epic [#26](https://github.com/MohamedXIV/OutsiderDriver/issues/26). **Do not close #22/#17 until owner gameplay acceptance**, even if tests pass.
 
 ## Absolute behavior requirements for agents
 
