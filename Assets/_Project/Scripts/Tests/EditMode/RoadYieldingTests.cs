@@ -127,9 +127,9 @@ namespace OutsiderDriver.Tests.EditMode
             center.IntersectionClearanceRadius = 6f;
 
             var west = CreateNode(network.transform, "West", 4, 10);
-            var east = CreateNode(network.transform, "East", 16, 10);
+            var east = CreateNode(network.transform, "East", 26, 10);
             var south = CreateNode(network.transform, "South", 10, 4);
-            var north = CreateNode(network.transform, "North", 10, 16);
+            var north = CreateNode(network.transform, "North", 10, 26);
 
             Connect(west, center);
             Connect(center, east);
