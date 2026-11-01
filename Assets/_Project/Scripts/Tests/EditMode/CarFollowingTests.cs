@@ -238,6 +238,16 @@ namespace OutsiderDriver.Tests.EditMode
             Assert.AreSame(car, junction.OccupyingVehicle, "Waypoint passing is not rear clearance.");
         }
 
+        [Test]
+        public void BodyStraddlingLane_RemainsVisibleAfterCentreLeavesOldSensorCorridor()
+        {
+            var obstacle = Car("straddling", 30, 1.9f); obstacle.CancelRoute();
+            var follower = Car("follower", 0);
+            for (int i = 0; i < 1000; i++) follower.TickMovement(Dt);
+            Assert.GreaterOrEqual(X(obstacle) - X(follower), 6.4f);
+            Assert.Less(follower.CurrentSpeed, 0.05f);
+        }
+
         private float X(VehicleController car) => _network.GroundProjection.WorldToGround(car.transform.position).x;
         private GameObject ObjectAt(string name, float x, float y)
         {

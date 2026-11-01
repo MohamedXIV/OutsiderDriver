@@ -4,6 +4,7 @@ using UnityEngine;
 using VContainer;
 using OutsiderDriver.Data;
 using OutsiderDriver.Navigation;
+using OutsiderDriver.World;
 
 namespace OutsiderDriver.Vehicles
 {
@@ -14,7 +15,7 @@ namespace OutsiderDriver.Vehicles
     /// </summary>
     [SelectionBase]
     [DisallowMultipleComponent]
-    public class VehicleController : MonoBehaviour
+    public partial class VehicleController : MonoBehaviour
     {
         private const float UncontrolledIntersectionTieMeters = 0.5f;
         private static readonly List<VehicleController> ActiveVehicles = new List<VehicleController>();
@@ -121,10 +122,12 @@ namespace OutsiderDriver.Vehicles
         }
         public bool IsMoving => _currentSpeed > 0.05f;
         public bool IsYielding => _isYielding;
-        public bool HasActiveRoute => _activePath.Count > 0 && _currentPathIndex < _activePath.Count;
+        private bool HasGraphRoute => _activePath.Count > 0 && _currentPathIndex < _activePath.Count;
+        public bool HasActiveRoute => HasGraphRoute || IsCurbManeuvering || _curbContinuationPath != null;
         public IReadOnlyList<RoadNode> ActivePath => _activePath;
-        public RoadNode CurrentTargetNode => HasActiveRoute ? _activePath[_currentPathIndex] : null;
-        public RoadNode DestinationNode => _activePath.Count > 0 ? _activePath[_activePath.Count - 1] : null;
+        public RoadNode CurrentTargetNode => HasGraphRoute ? _activePath[_currentPathIndex] : null;
+        public RoadNode DestinationNode => _targetStop != null ? _targetStop.ApproachNode
+            : (_activePath.Count > 0 ? _activePath[_activePath.Count - 1] : null);
         public Vector3 ForwardDirection => _forwardDirection;
         public Vector2 ForwardGroundDirection => _forwardGroundDirection;
         public IsometricDirection CurrentFacing => _currentFacing;
@@ -181,6 +184,7 @@ namespace OutsiderDriver.Vehicles
         private void OnDisable()
         {
             ReleaseReservedNode();
+            ClearCurbState();
             ActiveVehicles.Remove(this);
         }
 
@@ -205,8 +209,9 @@ namespace OutsiderDriver.Vehicles
         {
             if (deltaTime <= 0f) return;
             UpdateReservationClearance();
+            if (TickCurbMotion(deltaTime)) return;
 
-            if (_isPaused || !HasActiveRoute)
+            if (_isPaused || !HasGraphRoute)
             {
                 _isYielding = false;
                 ApplyDeceleration(deltaTime);
@@ -222,6 +227,8 @@ namespace OutsiderDriver.Vehicles
         public bool NavigateTo(RoadNode destination)
         {
             if (destination == null) return false;
+            if (IsCurbManeuvering || _curbMotion == CurbMotion.Parked)
+                return QueueGraphDeparture(destination, false, false);
             if (_turnTraversing)
             {
                 return QueueRouteAfterTurn(destination, false, false);
@@ -261,6 +268,8 @@ namespace OutsiderDriver.Vehicles
         public bool NavigateToAlternative(RoadNode destination, bool allowFallbackToPrimary = false)
         {
             if (destination == null) return false;
+            if (IsCurbManeuvering || _curbMotion == CurbMotion.Parked)
+                return QueueGraphDeparture(destination, true, allowFallbackToPrimary);
             if (_turnTraversing)
             {
                 return QueueRouteAfterTurn(destination, true, allowFallbackToPrimary);
@@ -289,7 +298,7 @@ namespace OutsiderDriver.Vehicles
         /// </summary>
         public bool NavigateAlongPath(IReadOnlyList<RoadNode> path)
         {
-            if (path == null || path.Count == 0 || _turnTraversing)
+            if (path == null || path.Count == 0 || _turnTraversing || IsCurbManeuvering || _curbMotion == CurbMotion.Parked)
             {
                 return false; // direct path replacement cannot interrupt an authored crossing
             }
@@ -311,6 +320,7 @@ namespace OutsiderDriver.Vehicles
                 return false;
             }
 
+            if (!_installingStopRoute) AbandonStopGoal();
             _currentPathIndex = 0;
             _initialIncomingNode = initialIncoming;
             _pendingPath = null;
@@ -340,6 +350,13 @@ namespace OutsiderDriver.Vehicles
 
         public void CancelRoute()
         {
+            // Logical ride cancellation cannot strand a body in a turn, pull-in or through lane.
+            // Stop-directed movement drains to its already validated bay; late events are identified by stop.
+            if (_targetStop != null || IsCurbManeuvering || _curbContinuationPath != null)
+            {
+                _isPaused = false;
+                return;
+            }
             if (_turnTraversing)
             {
                 // Cancellation drains the currently occupied authored movement to its safe exit.
@@ -446,6 +463,8 @@ namespace OutsiderDriver.Vehicles
         {
             get
             {
+                if (_maneuverStop != null) return _maneuverStop.ElevationLevel;
+                if (_parkedStop != null) return _parkedStop.ElevationLevel;
                 var target = CurrentTargetNode;
                 if (target == null) return _idleElevation;
                 if (IncomingNode == null) return target.ElevationLevel;
@@ -493,8 +512,8 @@ namespace OutsiderDriver.Vehicles
                     float cursor = _turnTraversing ? _turnDistance : 0f;
                     float approach = _turnTraversing ? 0f : (origin - _turnPath.PositionAtDistance(0)).magnitude;
                     float alongCurve = approach + arc - cursor;
-                    bool aligned = !other.HasActiveRoute || Vector2.Dot(_turnPath.TangentAtDistance(arc), other._forwardGroundDirection) > 0.5f;
-                    if (alongCurve > 0f && alongCurve <= horizon && Mathf.Abs(curveLateral) <= _forwardSensorHalfWidth
+                    bool aligned = !other.HasActiveRoute || other.IsCurbManeuvering || Vector2.Dot(_turnPath.TangentAtDistance(arc), other._forwardGroundDirection) > 0.5f;
+                    if (alongCurve > 0f && alongCurve <= horizon && Mathf.Abs(curveLateral) <= BodySensorHalfWidth(_turnPath.TangentAtDistance(arc), other)
                         && aligned && Mathf.Abs(other.TrafficElevation - TrafficElevation) < 0.5f)
                     {
                         float gap = alongCurve - (LengthMeters + other.LengthMeters) * 0.5f;
@@ -548,7 +567,7 @@ namespace OutsiderDriver.Vehicles
                     Vector2 offset = otherGround - segmentStart;
                     float along = Vector2.Dot(offset, direction);
                     float lateral = Mathf.Abs(direction.x * offset.y - direction.y * offset.x);
-                    bool aligned = !other.HasActiveRoute
+                    bool aligned = !other.HasActiveRoute || other.IsCurbManeuvering
                         || Vector2.Dot(direction, other._forwardGroundDirection) > 0.5f;
                     float startElevation = index == _currentPathIndex ? TrafficElevation : _activePath[index - 1].ElevationLevel;
                     float pathElevation = Mathf.Lerp(startElevation, node.ElevationLevel, Mathf.Clamp01(along / length));
@@ -557,7 +576,7 @@ namespace OutsiderDriver.Vehicles
                     // obstruct the destination pose even though their centre is off-route.
                     bool withinSegment = along <= length || index == _activePath.Count - 1;
                     if (sameElevation && aligned && along > 0f && withinSegment && travelled + along <= horizon
-                        && lateral <= _forwardSensorHalfWidth)
+                        && lateral <= BodySensorHalfWidth(direction, other))
                     {
                         float gap = travelled + along - (LengthMeters + other.LengthMeters) * 0.5f;
                         float leadSpeed = other._isPaused || !other.HasActiveRoute ? 0f : other._currentSpeed;
@@ -680,7 +699,12 @@ namespace OutsiderDriver.Vehicles
                 EvaluateYield(targetNode, distanceToNode, approachFollowingSpeed);
             }
             bool ownsWaypoint = !IsConflictNode(targetNode) || targetNode.OccupyingVehicle == this;
-            if (_turnPath == null && distanceToNode <= arrivalRadius && terminalPoseClear && ownsWaypoint)
+            bool atStopEntry = _stopRouting && _targetStop != null && targetNode == _targetStop.ApproachNode
+                && _currentPathIndex == _activePath.Count - 1;
+            bool atWaypoint = atStopEntry
+                ? (currentGround - _targetStop.PositionAtDistance(false, 0)).sqrMagnitude <= 0.000001f
+                : distanceToNode <= arrivalRadius;
+            if (_turnPath == null && atWaypoint && terminalPoseClear && ownsWaypoint)
             {
                 if (_reservedNode == targetNode)
                 {
@@ -695,6 +719,11 @@ namespace OutsiderDriver.Vehicles
                 if (_currentPathIndex >= _activePath.Count)
                 {
                     RoadNode reached = targetNode;
+                    if (atStopEntry)
+                    {
+                        BeginCurbArrival(_targetStop);
+                        return; // an access-node event never means passenger arrival
+                    }
                     Vector2 finalGround = terminalGround;
                     Vector2 finalWorld = projection.GroundToWorld(finalGround);
                     transform.position = new Vector3(finalWorld.x, finalWorld.y, transform.position.z);
@@ -816,6 +845,7 @@ namespace OutsiderDriver.Vehicles
                 targetSpeed = Mathf.Min(targetSpeed, Mathf.Sqrt(2f * _deceleration * entryTravel));
             }
             targetSpeed = Mathf.Min(targetSpeed, TurnSpeedLimit());
+            ApplyCurbApproachLimit(ref targetSpeed);
             _currentSpeed = Mathf.MoveTowards(_currentSpeed, targetSpeed,
                 (targetSpeed < _currentSpeed ? _deceleration : _acceleration) * deltaTime);
             _currentSpeed = Mathf.Min(_currentSpeed, clearTravel / deltaTime);
@@ -905,7 +935,10 @@ namespace OutsiderDriver.Vehicles
                 {
                     var pending = _pendingPath;
                     _pendingPath = null;
-                    NavigateAlongPath(pending);
+                    var stop = _pendingStopAfterTurn;
+                    _pendingStopAfterTurn = null;
+                    if (stop != null) InstallStopPath(pending, stop);
+                    else NavigateAlongPath(pending);
                 }
             }
         }
@@ -919,6 +952,7 @@ namespace OutsiderDriver.Vehicles
             if (alternative && (path == null || path.Count == 0) && allowFallback)
                 path = _roadNetwork.FindPath(outgoing, destination);
             if (path == null || path.Count == 0) return false;
+            AbandonStopGoal();
             _pendingPath = new List<RoadNode>(path);
             _isPaused = false;
             _cancelAfterTurn = false;
@@ -946,6 +980,9 @@ namespace OutsiderDriver.Vehicles
         /// </summary>
         private Vector2 GetLaneTargetGround(IsometricGroundProjection projection, RoadNode targetNode, Vector2 currentGround)
         {
+            if (_stopRouting && _targetStop != null && targetNode == _targetStop.ApproachNode
+                && _currentPathIndex == _activePath.Count - 1)
+                return _targetStop.PositionAtDistance(false, 0);
             if (_turnPath != null && !_turnTraversing && _turnPath.Junction == targetNode)
                 return _turnPath.PositionAtDistance(0);
             Vector2 targetGround = projection.WorldToGround(targetNode.Position);
@@ -1003,6 +1040,9 @@ namespace OutsiderDriver.Vehicles
 
         private Vector2 GetLaneEndGround(IsometricGroundProjection projection, RoadNode targetNode)
         {
+            if (_stopRouting && _targetStop != null && targetNode == _targetStop.ApproachNode
+                && _currentPathIndex == _activePath.Count - 1)
+                return _targetStop.PositionAtDistance(false, 0);
             Vector2 targetGround = projection.WorldToGround(targetNode.Position);
             float laneOffset = targetNode.LaneOffsetMeters;
             if (laneOffset <= 0.0001f)
