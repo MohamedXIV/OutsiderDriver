@@ -15,7 +15,7 @@
 
 **Input sources (reuse existing contracts before creating more):**
 - Time of day and continuous simulation clock / coarse ticks.
-- Existing road graph, reachable pickup/drop-off nodes, stops and `CityLocationAnchor` locations; disallow physically impossible routes.
+- Existing road graph, reachable **hand-authored safe pickup/dropoff curb-stop anchors**, and `CityLocationAnchor` locations. **An intersection RoadNode is not automatically a legal physical stopping location** (P-037); disallow unreachable/unsafe stops and physically impossible routes.
 - District and location category, traffic/availability and local context where data exists.
 - Passenger identity, routine, relevant social state and languages when represented. An ordinary transient resident may be simpler than a persistent significant resident. Do not fabricate identities or canonical alien names from random syllables.
 - Driver access: legal/social restrictions, informal versus official dispatch (availability of these channels and detailed mechanics remain separate design questions).
@@ -31,12 +31,14 @@ P0 must exercise the **systemic opportunity source** from the first playable imp
 Minimum acceptable player experience:
 1. Enter Play Mode in `OutsiderCity`, starting in taxi near home for convenience (initial start is staging, **not a permanent fixed job contract**).
 2. World time and valid locations produce one or more eligible, reachable job opportunities through the simplest currently appropriate access channel. Accept / decline / ignore; new opportunities continue to arise without scene reload. No need for multiple job-market apps in P0.
-3. Pickup and destination are selected from actual traversable world nodes/locations; multiple requests can differ between situations/clock windows/seeds without arbitrary teleportation.
+3. Pickup and destination are selected from **reachable legal curb-stop positions at authored world locations**, not arbitrary junction RoadNodes. Route topology and stable IDs still come from the existing road network. Multiple requests can differ between situations/time windows/seeds without teleportation.
 4. Player chooses a job, semi-auto taxi travels to pickup, passenger boards, rides, can remain silent, arrives, is settled in **ground metres**, credits update, and player may take further work.
 5. Declining does not instantly replay the same hardcoded job. The player is never forced to accept a special passenger or a scripted route.
 6. Relevant EditMode + genuine PlayMode tests demonstrate the above, including changes in time/state leading to different eligible opportunities and repeated rides without restarting.
 
-**Implementation boundary:** reuse `RideLifecycleService` (one active ride state machine), `CityWorldRegistry`, `RoadNetwork`, `TimeService`, `PassengerDefinitionSO`, state services, existing Ink/UI Toolkit. A small scene-scoped offer source/orchestrator is reasonable; **do not** create a new giant NPC/economy/simulation engine or hardcode a timeline of jobs. Fix the existing fare and pickup proximity computations still using raw Unity coordinates to use the approved ground-meter projection. Reuse passenger definitions as **content pool**, not a schedule of scripted rides.
+**Implementation boundary:** reuse `RideLifecycleService` (one active ride state machine), `CityWorldRegistry`, `RoadNetwork`, `TimeService`, `PassengerDefinitionSO`, state services, existing Ink/UI Toolkit. A small scene-scoped offer source/orchestrator is reasonable; **do not** create a new giant NPC/economy/simulation engine or hardcode a timeline of jobs. Metric fare and pickup calculations were already addressed under closed #18; preserve those ground-metre semantics while moving physical boarding/dropoff to safe authored stops under #27. Reuse passenger definitions as **content pool**, not a schedule of scripted rides.
+
+**Implementation status update (2026-11-01):** #18 ground-metre fares and #19 systemic demand, #20 HUD and #21 production orchestration have shipped. #22/Taxi Epic #17 are **not owner-accepted** yet because #27 safe curbside stop positions and #28 basic car-following remain unresolved; see [Traffic & Transportation](TRAFFIC_AND_TRANSPORTATION.md). Later buses/trams/bridges/monorail are not requirements for first P0 acceptance.
 
 ## 4. Follow-on systemic depth — staged, not a P0 prerequisite
 
@@ -53,7 +55,7 @@ Minimum acceptable player experience:
 
 ## 6. Scope/quality guardrails
 
-- No offline LLM requirement, no random ungrounded dialog/lore, no guaranteed same first three ride offers, no scripted daily job ladder, no passenger instantiated at an unreachable road node, no repeatedly recycled identical job on Decline.
+- No offline LLM requirement, no random ungrounded dialog/lore, no guaranteed same first three ride offers, no scripted daily job ladder, no passenger instantiated at an unreachable or intersection-blocking curb stop, no repeatedly recycled identical job on Decline.
 - Persist meaningful resident/driver state when existing save architecture supports it; do not require backward save migrations or architect a new universal persistence schema solely for the first shift.
 - Keep the current approved 2D-isometric, meter-scaled visual city. The procedural ride source must use the real physical road graph and fare distances.
 - **Validation distinguishes** authored test fixture, verified dynamically generated production offers, PlayMode mechanics, and human enjoyment. Passing one static test ride does not satisfy the systemic milestone.
