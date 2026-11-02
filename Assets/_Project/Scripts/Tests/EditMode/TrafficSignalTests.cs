@@ -152,6 +152,38 @@ namespace OutsiderDriver.Tests.EditMode
             Assert.IsFalse(_first.AllowsEntry);
         }
 
+        [Test]
+        public void TrafficSignalLamp_UpdatesIndicatorColorAccordingToSignalState()
+        {
+            var lampGo = Create("Lamp");
+            var sr = lampGo.AddComponent<SpriteRenderer>();
+            var lamp = lampGo.AddComponent<TrafficSignalLamp>();
+            lamp.Configure(_first, sr);
+
+            // Initially AllRed -> Red color
+            lamp.UpdateVisuals(force: true);
+            Assert.AreEqual(SignalState.AllRed, lamp.CurrentState);
+            Assert.AreEqual(new Color(0.95f, 0.2f, 0.2f, 1f), sr.color);
+
+            // Advance 1s -> First approach becomes Green
+            _controller.Tick(1f);
+            lamp.UpdateVisuals();
+            Assert.AreEqual(SignalState.Green, lamp.CurrentState);
+            Assert.AreEqual(new Color(0.2f, 0.95f, 0.35f, 1f), sr.color);
+
+            // Advance 5s -> Amber
+            _controller.Tick(5f);
+            lamp.UpdateVisuals();
+            Assert.AreEqual(SignalState.Amber, lamp.CurrentState);
+            Assert.AreEqual(new Color(0.98f, 0.75f, 0.1f, 1f), sr.color);
+
+            // Advance 2s -> AllRed
+            _controller.Tick(2f);
+            lamp.UpdateVisuals();
+            Assert.AreEqual(SignalState.AllRed, lamp.CurrentState);
+            Assert.AreEqual(new Color(0.95f, 0.2f, 0.2f, 1f), sr.color);
+        }
+
         private TrafficSignalApproach CreateApproach(string name, int group)
         {
             var incoming = Create(name + "Incoming").AddComponent<RoadNode>();

@@ -84,6 +84,7 @@ namespace OutsiderDriver.Vehicles
         public static void ClearActiveVehicles() => ActiveVehicles.Clear();
 
         public CarModelSO CarModel => _carModel;
+        public RoadNode ReservedNode => _reservedNode;
         public float CurrentSpeed => _currentSpeed;
         public float MaxSpeed
         {
@@ -144,6 +145,7 @@ namespace OutsiderDriver.Vehicles
             {
                 _roadNetwork = roadNetwork;
             }
+            RegisterActiveVehicle(this);
         }
 
         /// <summary>
@@ -182,6 +184,13 @@ namespace OutsiderDriver.Vehicles
         }
 
         private void OnDisable()
+        {
+            ReleaseReservedNode();
+            ClearCurbState();
+            ActiveVehicles.Remove(this);
+        }
+
+        private void OnDestroy()
         {
             ReleaseReservedNode();
             ClearCurbState();
@@ -443,7 +452,20 @@ namespace OutsiderDriver.Vehicles
                 if (!upcomingNode.TryReserveIntersection(this)) return true;
                 _reservedNode = upcomingNode;
             }
-            if (distanceToNode <= entryRadius) _junctionCommitted = true;
+            if (distanceToNode <= entryRadius)
+            {
+                var approach = TrafficSignalApproach.Find(upcomingNode, IncomingNode);
+                if (approach != null && ValidStopLine(approach, out Vector2 line, out Vector2 direction))
+                {
+                    float distToLine = Vector2.Dot(line - GroundProjection.WorldToGround(transform.position), direction)
+                        - LengthMeters * 0.5f;
+                    if (distToLine <= 0.05f) _junctionCommitted = true;
+                }
+                else
+                {
+                    _junctionCommitted = true;
+                }
+            }
             return false;
         }
 
@@ -490,6 +512,13 @@ namespace OutsiderDriver.Vehicles
             float horizon = Mathf.Max(_forwardSensorDistance,
                 LengthMeters + MinimumGap + _currentSpeed * TimeHeadway
                 + _currentSpeed * _currentSpeed / (2f * Mathf.Max(0.1f, _deceleration)));
+            RoadNode upcomingConflict = priorityIntersection != null ? priorityIntersection
+                : (_reservedNode != null ? _reservedNode : (IsConflictNode(CurrentTargetNode) ? CurrentTargetNode : null));
+            if (upcomingConflict != null)
+            {
+                float toConflict = (projection.WorldToGround(upcomingConflict.Position) - origin).magnitude;
+                horizon = Mathf.Max(horizon, toConflict + upcomingConflict.IntersectionClearanceRadius + LengthMeters + MinimumGap);
+            }
 
             for (int i = 0; i < ActiveVehicles.Count; i++)
             {
@@ -728,6 +757,7 @@ namespace OutsiderDriver.Vehicles
                     Vector2 finalWorld = projection.GroundToWorld(finalGround);
                     transform.position = new Vector3(finalWorld.x, finalWorld.y, transform.position.z);
                     CancelRoute();
+                    ReleaseReservedNode();
                     OnDestinationReached?.Invoke(reached);
                     return;
                 }
@@ -775,7 +805,19 @@ namespace OutsiderDriver.Vehicles
                 if (_reservedNode != null && !_junctionCommitted
                     && (projection.WorldToGround(transform.position) - projection.WorldToGround(_reservedNode.Position)).magnitude
                         <= _reservedNode.IntersectionClearanceRadius + LengthMeters * 0.5f)
-                    _junctionCommitted = true;
+                {
+                    var approach = TrafficSignalApproach.Find(_reservedNode, IncomingNode);
+                    if (approach != null && ValidStopLine(approach, out Vector2 line, out Vector2 direction))
+                    {
+                        float distToLine = Vector2.Dot(line - projection.WorldToGround(transform.position), direction)
+                            - LengthMeters * 0.5f;
+                        if (distToLine <= 0.05f) _junctionCommitted = true;
+                    }
+                    else
+                    {
+                        _junctionCommitted = true;
+                    }
+                }
             }
         }
 
@@ -882,6 +924,10 @@ namespace OutsiderDriver.Vehicles
             float approachDistance = _turnTraversing ? 0f
                 : (GroundProjection.WorldToGround(transform.position) - _turnPath.PositionAtDistance(0)).magnitude;
             float limit = _maxSpeed;
+            if (_turnTraversing)
+            {
+                limit = Mathf.Min(limit, _turnPath.SpeedLimitAtDistance(_turnDistance, LateralAcceleration, _maxSpeed));
+            }
             for (int i = 0; i <= 32; i++)
             {
                 float distance = _turnPath.Length * i / 32f;
@@ -930,6 +976,7 @@ namespace OutsiderDriver.Vehicles
                 {
                     _cancelAfterTurn = false;
                     CancelRoute();
+                    ReleaseReservedNode();
                 }
                 else if (_pendingPath != null)
                 {

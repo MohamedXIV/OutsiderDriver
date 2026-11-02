@@ -324,10 +324,11 @@ namespace OutsiderDriver.Vehicles
         {
             // Include a merging body's swept lateral extent, even when its centre has
             // just left the old fixed corridor. Dedicated 3m opposing lanes remain separate.
-            float parallel = Mathf.Abs(Vector2.Dot(direction.normalized, other._forwardGroundDirection));
-            float cross = Mathf.Abs(direction.x * other._forwardGroundDirection.y - direction.y * other._forwardGroundDirection.x);
+            Vector2 dirNorm = direction.normalized;
+            float parallel = Mathf.Abs(Vector2.Dot(dirNorm, other._forwardGroundDirection));
+            float cross = Mathf.Abs(dirNorm.x * other._forwardGroundDirection.y - dirNorm.y * other._forwardGroundDirection.x);
             float otherHalfWidth = 0.5f * (other.WidthMeters * parallel + other.LengthMeters * cross);
-            return Mathf.Max(_forwardSensorHalfWidth, WidthMeters * 0.5f + otherHalfWidth + 0.1f);
+            return Mathf.Min(2.85f, Mathf.Max(_forwardSensorHalfWidth, WidthMeters * 0.5f + otherHalfWidth + 0.1f));
         }
 
         private bool DepartureLaneClear(TaxiStopAnchor stop)

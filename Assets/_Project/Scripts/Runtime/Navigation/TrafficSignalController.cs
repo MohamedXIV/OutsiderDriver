@@ -10,6 +10,12 @@ namespace OutsiderDriver.Navigation
         private static readonly Dictionary<RoadNode, List<TrafficSignalController>> Registry =
             new Dictionary<RoadNode, List<TrafficSignalController>>();
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStaticRegistry()
+        {
+            Registry.Clear();
+        }
+
         [SerializeField] private RoadNode _junction;
         [SerializeField] private TrafficSignalApproach[] _approaches = new TrafficSignalApproach[0];
         [Min(0.01f), SerializeField] private float _greenSeconds = 10f;
@@ -45,6 +51,7 @@ namespace OutsiderDriver.Navigation
         public static TrafficSignalController Find(RoadNode junction)
         {
             if (junction == null || !Registry.TryGetValue(junction, out var entries)) return null;
+            entries.RemoveAll(e => e == null);
             for (int i = 0; i < entries.Count; i++)
                 if (entries[i] != null) return entries[i];
             return null;
@@ -61,6 +68,9 @@ namespace OutsiderDriver.Navigation
             if (_state == SignalState.AllRed) return SignalState.AllRed;
             return approach.PhaseGroup == _currentGroup ? _state : SignalState.Red;
         }
+
+        private bool IsJunctionOccupied => _junction != null && _junction.OccupyingVehicle != null &&
+            !(_junction.OccupyingVehicle is UnityEngine.Object uo && uo == null);
 
         /// <summary>Uses elapsed game seconds. Invalid deltas do nothing; large deltas skip whole empty cycles.</summary>
         public void Tick(float deltaTime)
@@ -80,7 +90,7 @@ namespace OutsiderDriver.Navigation
             double elapsed = deltaTime;
             // No entry/exit history occurs within one synchronous tick. Whole unoccupied cycles are equivalent.
             double cycleSeconds = _groupCount * ((double)_greenSeconds + _amberSeconds + _allRedSeconds);
-            if (_junction.OccupyingVehicle == null && elapsed >= cycleSeconds)
+            if (!IsJunctionOccupied && elapsed >= cycleSeconds)
                 elapsed %= cycleSeconds;
 
             while (elapsed >= _remainingSeconds)
@@ -88,7 +98,7 @@ namespace OutsiderDriver.Navigation
                 elapsed -= _remainingSeconds;
                 if (_state == SignalState.AllRed)
                 {
-                    if (_junction.OccupyingVehicle != null)
+                    if (IsJunctionOccupied)
                     {
                         _remainingSeconds = 0d;
                         return;
@@ -111,7 +121,7 @@ namespace OutsiderDriver.Navigation
             _remainingSeconds -= elapsed;
         }
 
-        internal void ResetCycle()
+        public void ResetCycle()
         {
             _state = SignalState.AllRed;
             _currentGroup = -1;
@@ -119,8 +129,15 @@ namespace OutsiderDriver.Navigation
             _configurationValid = ValidateConfiguration();
         }
 
-        private bool IsUniqueController => _junction != null &&
-            Registry.TryGetValue(_junction, out var entries) && entries.Count == 1 && entries[0] == this;
+        private bool IsUniqueController
+        {
+            get
+            {
+                if (_junction == null || !Registry.TryGetValue(_junction, out var entries)) return false;
+                entries.RemoveAll(e => e == null);
+                return entries.Count == 1 && entries[0] == this;
+            }
+        }
 
         private bool ValidateConfiguration()
         {

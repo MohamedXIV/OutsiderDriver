@@ -18,6 +18,12 @@ namespace OutsiderDriver.Navigation
         private static readonly Dictionary<(RoadNode, RoadNode), List<TrafficSignalApproach>> Registry =
             new Dictionary<(RoadNode, RoadNode), List<TrafficSignalApproach>>();
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStaticRegistry()
+        {
+            Registry.Clear();
+        }
+
         [SerializeField] private TrafficSignalController _controller;
         [SerializeField] private RoadNode _junction;
         [SerializeField] private RoadNode _incoming;
@@ -58,12 +64,13 @@ namespace OutsiderDriver.Navigation
         {
             if (junction == null || incoming == null) return null;
             if (!Registry.TryGetValue((junction, incoming), out var approaches)) return null;
+            approaches.RemoveAll(a => a == null);
             for (int i = 0; i < approaches.Count; i++)
                 if (approaches[i] != null) return approaches[i];
             return null;
         }
 
-        internal bool IsAuthoringValid
+        public bool IsAuthoringValid
         {
             get
             {
@@ -75,8 +82,9 @@ namespace OutsiderDriver.Navigation
                 bool connected = false;
                 for (int i = 0; i < _incoming.ConnectedNodes.Count; i++)
                     if (_incoming.ConnectedNodes[i] == _junction) connected = true;
-                return connected && Registry.TryGetValue((_junction, _incoming), out var matches) &&
-                    matches.Count == 1 && matches[0] == this;
+                if (!connected || !Registry.TryGetValue((_junction, _incoming), out var matches)) return false;
+                matches.RemoveAll(m => m == null);
+                return matches.Count == 1 && matches[0] == this;
             }
         }
 

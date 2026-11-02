@@ -129,8 +129,18 @@ namespace OutsiderDriver.Tests.EditMode
 
         public static void DriveUntilStopped(VehicleController taxi, int maxSteps = 20000)
         {
+            var signals = UnityEngine.Object.FindObjectsByType<TrafficSignalController>(FindObjectsSortMode.None);
             for (int i = 0; i < maxSteps && (taxi.HasActiveRoute || taxi.HasPendingStopMotion); i++)
+            {
+                for (int s = 0; s < signals.Length; s++)
+                {
+                    if (signals[s] != null && signals[s].isActiveAndEnabled)
+                    {
+                        signals[s].Tick(0.05f);
+                    }
+                }
                 taxi.TickMovement(0.05f);
+            }
             Assert.IsFalse(taxi.HasActiveRoute || taxi.HasPendingStopMotion, "Taxi must finish the authored route and curb manoeuvre.");
         }
 
