@@ -13,6 +13,7 @@
 3. [docs/WORLD_CONTENT_DATA_CONTRACT.md](docs/WORLD_CONTENT_DATA_CONTRACT.md) — mandatory 2D isometric and data-driven world/content requirements.
 4. [docs/CITY_SCALE_AND_STREET_STANDARDS.md](docs/CITY_SCALE_AND_STREET_STANDARDS.md) — approved physical scale, street classes, lane-aware navigation and road-authoring rules (P-031–P-033).
 5. [docs/TRAFFIC_AND_TRANSPORTATION.md](docs/TRAFFIC_AND_TRANSPORTATION.md) — approved safe taxi stops, lane-aware following, natural turns, traffic signals and handcrafted buses/tram/bridges/monorail (P-037/P-038).
+5a. [docs/STREET_HAIL_CITY_LIFE_AND_EQUIPMENT.md](docs/STREET_HAIL_CITY_LIFE_AND_EQUIPMENT.md) — **latest owner gameplay correction**: street-hailing first, contextual curbside taxi stops, free map, walking residents, energy technology TBD (P-039–P-043). This overrides earlier mandatory fixed taxi-bay/offer-board interpretations.
 6. [docs/ROADMAP.md](docs/ROADMAP.md) — verified issue statuses, immediate blockers and stage order.
 7. [docs/SYSTEMS_ARCHITECTURE.md](docs/SYSTEMS_ARCHITECTURE.md) — technical blueprint: VContainer DI, TimeService, GTA traffic bubble, Ink dialogue, UI Toolkit MVP.
 8. [docs/VISUAL_DIRECTION.md](docs/VISUAL_DIRECTION.md) — art intent, user image-reference descriptions, non-decisions.
