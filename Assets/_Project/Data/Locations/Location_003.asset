@@ -24,4 +24,4 @@ MonoBehaviour:
   - Miren-Kael
   _summary: Primary commercial destination with rounded retro-futurist arches, market stalls, and passenger dropoff plaza.
   _floorCount: 2
-  _connectedRoadNodeId: node_d02_market_plaza
+  _connectedRoadNodeId: node_market_approach

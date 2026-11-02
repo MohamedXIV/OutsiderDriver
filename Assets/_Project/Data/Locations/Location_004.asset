@@ -24,4 +24,4 @@ MonoBehaviour:
   - Vora-Tal
   _summary: Eastern commercial arcade along the secondary loop connecting the workshop quarter and market core.
   _floorCount: 2
-  _connectedRoadNodeId: node_d02_east_corner
+  _connectedRoadNodeId: node_exchange_approach

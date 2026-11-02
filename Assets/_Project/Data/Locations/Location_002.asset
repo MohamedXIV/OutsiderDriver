@@ -24,4 +24,4 @@ MonoBehaviour:
   - Sul-Tarn
   _summary: Local neighborhood fabrication and ground-vehicle upkeep workshop on the southern street.
   _floorCount: 1
-  _connectedRoadNodeId: node_d01_se_corner
+  _connectedRoadNodeId: node_workshop_approach
