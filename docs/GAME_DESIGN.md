@@ -184,6 +184,16 @@ Those are **levels of detail**, not three unrelated NPC architectures to build. 
 
 These are proposed engineering principles, **not a demand to implement a new simulation LOD framework before ordinary gameplay works**. Favor Unity-native tools and the smallest actual feature set that satisfies the player's experience.
 
+### 2026-11-02 owner correction: first-day street taxi work
+
+The driver **starts with old-fashioned street hails**: roam the freeform hand-authored city, observe actual sidewalk pedestrians looking for rides, approach and safely pull over. **The remote jobs/offer board is NOT the opening gameplay UI.** Its functioning backend can be reused later for an **optional unofficial low-paying informal dispatch app** bought/accessed through suspicious local places; formal dispatch may exist still later but how an undocumented player qualifies is explicitly undecided. Street work always remains available.
+
+Dedicated recessed lay-bys are for buses and sometimes taxi ranks, not universal fare targets. Typical passengers specify ordinary places/addresses. Resolve safe roadside stopping on eligible human-authored curbs without blocking intersections; preserve existing physical maneuvers and systemic fare settlement.
+
+The **whole city map** is available without GPS, including choosing connected destinations for semi-autonomous travel. GPS, translator and radio are optional starting equipment aids; GPS can provide more route/place/congestion/passenger/event information, with precise overlays TBD. The city should have walking passersby and actual visible street-hail actors. Taxi fuel/energy is finite and must be renewed at real city stations; **exact energy technology not yet agreed**.
+
+The owner's normal-speed review of PR #35 confirmed real rides, following, physical bay arrival and signals, but identified **congestion** and **vehicles sliding sideways then correcting facing on turns**; these are open polish/correctness issues, not finished behavior. See [Street-first Taxi Life](STREET_HAIL_CITY_LIFE_AND_EQUIPMENT.md).
+
 ## 8. Driving and map design boundaries
 
 The **entire city is purpose-built and hand-authored (P-036)**: geography, roads, building footprints and placements have meaningful designed spatial relationships. **No procedural road, building or map-layout generation.** This is independent of the **required systemic/procedural taxi work** (P-034). Roads can be long, curved, multi-level, and interrupted by safe junctions or service stops. Building a believable setting is part of pacing: a journey must feel long enough to converse and enjoy the view.
@@ -193,7 +203,7 @@ The **entire city is purpose-built and hand-authored (P-036)**: geography, roads
 - **Optional reroute:** a route change takes effect at a legal point (e.g., the next road junction), not through teleportation.
 - **Road elevations:** overpasses only connect by authored intersections/ramps; drawing overlap is not navigation.
 - **Traffic:** believable cars, legal lanes, intersections, crossings, pedestrians and local avoidance, without pretending we need a full GTA vehicle/traffic simulation.
-- **P-037: credible motion and safe stops:** cars should maintain safe gaps and slow progressively for vehicles ahead; believable curves and signals matter for a driving-centered experience. The taxi must collect/drop passengers at explicitly hand-authored legal curbside/lay-by stops, **never stationary in a junction merely because a ride destination is a RoadNode**. This is required for P0 acceptance; see [Traffic & Transportation](TRAFFIC_AND_TRANSPORTATION.md).
+- **P-037/P-040: credible motion and safe stops:** cars maintain safe gaps, slow progressively, and present believable curves and signals. Taxi pickup/dropoff happens at **safe positions on eligible authored curb segments near riders/addresses**, not necessarily preplaced dedicated bays, and never stationary in a busy junction. Fixed bays remain useful for buses and optional taxi stands. See [Street-first Taxi Life](STREET_HAIL_CITY_LIFE_AND_EQUIPMENT.md).
 - **P-038: layered public transit (staged):** human-authored ground buses with real stop bays recessed at the curb while preserving sidewalk accessibility, rail-bound tram, bridges/ramps/overpasses and elevated monorail on its own guideway/stations. These are intended parts of the city, but not mandatory implementations before the first enjoyable taxi shift. No procedural infrastructure or universal transport simulator.
 - **Rider comfort:** don't make players race long dialogue against a ten-second journey; use genuine world scale and sensible interaction timing.
 - **Exploration:** on-foot freedom at home and within the initial neighborhood does not change semi-autonomous driving into mandatory manual steering.
