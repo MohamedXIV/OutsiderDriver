@@ -32,6 +32,7 @@ You are an illegal human resident living under a cover identity in a non-human c
 | **[Systemic Open-World & Ride Demand](docs/SYSTEMIC_OPEN_WORLD_AND_RIDE_DEMAND.md)** | Mandatory procedural work offers, open-world taxi gameplay, grounded passenger and route selection, and P0 acceptance |
 | **[Roadmap & Current Issues](docs/ROADMAP.md)** | Verified completed taxi foundation, outstanding owner acceptance, P0 traffic blockers, and staged road/transit delivery |
 | **[Traffic & Transportation](docs/TRAFFIC_AND_TRANSPORTATION.md)** | Safe curbside taxi stops, car following, turns/signals, buses, recessed bus bays, authored bridges, tram and elevated monorail |
+| **[Street-first Taxi Life](docs/STREET_HAIL_CITY_LIFE_AND_EQUIPMENT.md)** | Latest owner playtest decisions: find street passengers before apps, flexible safe taxi curb stops, full map without GPS, walking pedestrians and energy type TBD |
 | **[Systems Architecture](docs/SYSTEMS_ARCHITECTURE.md)** | Canonical technical blueprint: VContainer DI, TimeService ticks, GTA-style traffic bubble, Ink narrative engine, UI Toolkit MVP, and localization |
 | **[Visual Direction](docs/VISUAL_DIRECTION.md)** | Bright alien retro-futurism, architecture, vehicles, people, cozy home, user-supplied reference interpretations and art-production unknowns |
 | **[Engineering Principles](docs/ENGINEERING_PRINCIPLES.md)** | Unity-native 2D approach, clean production systems, performance validation, and previous mistakes to avoid |
