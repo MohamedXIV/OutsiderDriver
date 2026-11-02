@@ -4,6 +4,14 @@
 **Authority:** Decision Register P-037/P-038, P-021/P-024/P-031/P-032/P-036, [Game Design](GAME_DESIGN.md), [City Standards](CITY_SCALE_AND_STREET_STANDARDS.md), and [Active Roadmap](ROADMAP.md).
 **Tracking:** The new Traffic & Transportation Epic (linked from the roadmap); the existing taxi Epic #17 and owner acceptance #22 remain open until core comfort/safety issues are resolved and playtested.
 
+## Owner correction after live player feedback — 2026-11-02 (P-039/P-040)
+
+**Authoritative correction:** The initial `TaxiStopAnchor` bays implemented on draft PR #35 are a useful **test of physical pull-in/out**, but **taxi rides must not require a dedicated recessed bay at every destination**. Taxi drivers should be able to stop safely along suitable authored curbside street segments near ordinary passengers and **addresses**. These allowed segments and street geometry are hand-authored; selection of safe temporary stopping poses is contextual runtime gameplay (not generated roads). Taxi stands and fixed bays are optional, while recessed **bus bays** remain an intended future infrastructure type for #31.
+
+The earlier Phase A1 text below describes the first safe-stop implementation, **not the final universal taxi-stop rule**. Do not implement a fixed-bay-only taxi system. Preserve its safety and kinematic maneuver logic, but extend it for legal roadside stop zones and physical passenger pickup (#27, #37). The owner confirms the PR #35 cars now slow/restart, rides work and signals function, but still sees **traffic congestion and side-sliding/reorienting vehicles on corners**; #29 and #22 therefore require additional owner-visible diagnosis (#42).
+
+Canonical revision: [Street-first Taxi Life](STREET_HAIL_CITY_LIFE_AND_EQUIPMENT.md).
+
 ## The goal, not a full traffic simulator
 
 **Driving through the city and observing it are central to the game.** Completing a ride in PlayMode is a technical baseline, not proof that the traffic feels natural or that stops happen in safe, plausible places.
