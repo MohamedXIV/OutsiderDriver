@@ -1,8 +1,38 @@
 # Outsider Driver — Current Roadmap & Verified GitHub Issue Status
 
-**Updated:** 2026-11-01. **Planning state:** current tracked implementation through `27ecf2e` reviewed; upcoming traffic/transit tasks below are **not yet implemented**.
+**Updated:** 2026-11-02. **Planning state:** Owner personally tested the PR #35 Unity integration: rides, car-following, bay docking and signals work, but congestion and turn-facing presentation remain incomplete. PR #35 includes implementation of #27–#30 but remains a **DRAFT** with no merge; the new street-hail-first player experience is NOT implemented. Original historical P0 table below needs to be read in conjunction with the newest owner correction section.
 **Authority:** [Game Design](GAME_DESIGN.md), [Decision Register](DECISIONS_AND_OPEN_QUESTIONS.md) P-034–P-038, [Systemic Sandbox](SYSTEMIC_OPEN_WORLD_AND_RIDE_DEMAND.md), [Traffic & Transportation](TRAFFIC_AND_TRANSPORTATION.md) and [AGENTS.md](../AGENTS.md).
 **Live work tracking:** [Taxi Gameplay Epic #17](https://github.com/MohamedXIV/OutsiderDriver/issues/17), [Traffic & Transportation Epic #26](https://github.com/MohamedXIV/OutsiderDriver/issues/26). GitHub issues/commits override the dated snapshot in this file.
+
+## LATEST OWNER PRODUCT PRIORITY — 2026-11-02
+
+**Override:** [Street-first Taxi Life, Maps and Energy](STREET_HAIL_CITY_LIFE_AND_EQUIPMENT.md) is the newest design authority (P-039–P-043). **Taxi work must start from finding visible people in the street**, not using the remote work offer-board as if a dispatch app were already owned. The same P-034 systemic demand, resident identity, ride service, fares, time and legal road graph remain valuable. **Fixed recessed bays are optional taxi ranks / future bus bays**, not mandatory targets for every fare: select safe contextual roadside positions along human-authored curbs (P-040). Whole-city map and location click-to-travel work without GPS (P-041). Lightweight walkers and hails are part of city life (P-042). Finite taxi energy/fuel and authored service stations are planned, but the power source and consequences are undecided (P-043). An optional informal underground-dispatch app can come later, with formal app access explicitly open.
+
+**PR [#35](https://github.com/MohamedXIV/OutsiderDriver/pull/35) integration facts:** The Unity agent reported **191/191 EditMode and 2/2 PlayMode** after authoring four fixed bays, three turn curves and one visible signalized junction in `OutsiderCity`. The owner independently reports fares complete, cars follow and restart, bay docking works, and signals run. However the owner sees **remaining congestion and sideways/late-facing turns**. Do not call this owner-accepted traffic or merge simply because automated suites passed. The 15-minute profiler/traffic-soak requirement and actual graphical orientation still need evidence.
+
+### Immediate work — protect and improve the real play loop
+
+| Priority | Issue | Outcome |
+| --- | --- | --- |
+| **Now, quality gate** | [#42 — Congestion and sideways-turn diagnosis](https://github.com/MohamedXIV/OutsiderDriver/issues/42) + [#29 — Turn/facing](https://github.com/MohamedXIV/OutsiderDriver/issues/29) | Diagnose real jam causes; align sprite facing with actual movement tangent, fix any genuine path cuts, normal-speed Game View proof; don't hide with teleportation |
+| **Now, stop policy** | [#27 — Flexible safe roadside taxi stopping](https://github.com/MohamedXIV/OutsiderDriver/issues/27) | Preserve PR #35 fixed-bay pull-in implementation, make **ordinary taxi curb stops contextual at eligible authored curb zones**; ensure passenger/address proximity and no stopping in active junctions |
+| **P0 first-day work** | [#37 — Street-hail passenger discovery](https://github.com/MohamedXIV/OutsiderDriver/issues/37) + thin [#39 — Visible pedestrian slice](https://github.com/MohamedXIV/OutsiderDriver/issues/39) | Begin as old-fashioned street taxi: find real on-street NPCs, stop, board, serve systemic destinations; remote offer-card board not the default |
+| **P0 player travel** | [#38 — Whole-city map without GPS](https://github.com/MohamedXIV/OutsiderDriver/issues/38) | Click place to drive there and explore/search for passengers; GPS assists but does not unlock the map |
+| **Then owner gate** | [#22 — Human acceptance](https://github.com/MohamedXIV/OutsiderDriver/issues/22) + [#17 — First sandbox Epic](https://github.com/MohamedXIV/OutsiderDriver/issues/17) | At normal speeds: coherent turns/traffic, street-discovered repeat rides, legal roadside boarding and independently chosen map travel |
+
+### Follow-on living city and services
+
+| Issue | Later scope |
+| --- | --- |
+| [#39 — Walking city life](https://github.com/MohamedXIV/OutsiderDriver/issues/39) | Expand beyond minimal street-hail actors: ordinary walkers, activities and coherent sidewalk flows |
+| [#23 — Contextual passenger Ink](https://github.com/MohamedXIV/OutsiderDriver/issues/23) / [#24 — World availability](https://github.com/MohamedXIV/OutsiderDriver/issues/24) | Optional conversations, recurring people, offscreen life; build on physical street encounters |
+| [#40 — Taxi energy & stations](https://github.com/MohamedXIV/OutsiderDriver/issues/40) | Finite resource, authored service stops; exact fuel technology, pricing, recovery and UI unresolved |
+| [#41 — Informal dispatch](https://github.com/MohamedXIV/OutsiderDriver/issues/41) | Later optional paid/earned access through semi-legal local life; lower expected fares and potentially risky riders; reuse current remote-offer UI backend; official app details undecided |
+| [Traffic Epic #26](https://github.com/MohamedXIV/OutsiderDriver/issues/26), [#31–#34](https://github.com/MohamedXIV/OutsiderDriver/issues/31) | Buses with proper recessed bays, authored bridges, trams and monorail; not required before the starter experience |
+
+**Execution:** keep #35 in draft; don't throw out working technical systems. Rebase/merge `main` documentation decisions into the implementation branch only in a deliberate conflict-aware operation, and do not claim the 2026-11-02 gameplay pivot is already coded. Avoid bundling an unlimited new simulation into one PR.
+
+---
 
 ## Product north star (unchanged)
 
@@ -73,4 +103,4 @@ These are intended city features, **not yet implemented**. Complete one believab
 - For future issues, prove playable value, ordinary-speed visual inspection and performance where needed; tests, evidence and owner art/comfort approval are **distinct**.
 - **Do not roll every feature into one DeepSeek/Gemini batch.** Start with #27, then #28 (or parallel if integration boundaries permit), then validate #22 and accept P0.
 
-**Immediate next implementation:** [#27 — Safe Curbside Taxi Stops](https://github.com/MohamedXIV/OutsiderDriver/issues/27) on the existing production city.
+**Immediate implementation priorities (2026-11-02 override):** [#42 remaining jams/turn feel](https://github.com/MohamedXIV/OutsiderDriver/issues/42), then [#27 flexible curb policy](https://github.com/MohamedXIV/OutsiderDriver/issues/27) and [#37 actual street-hails](https://github.com/MohamedXIV/OutsiderDriver/issues/37) with [#38 map](https://github.com/MohamedXIV/OutsiderDriver/issues/38); see latest-owner section above. Prior historical phase plans are snapshots, not automatic approval to force dedicated taxi bays or offer-board-first work.
