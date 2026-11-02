@@ -27,4 +27,4 @@ MonoBehaviour:
   - StartHour: 8
     EndHour: 20
     DistrictId: district_02
-    PreferredNodeId: node_d02_east_link
+    PreferredNodeId: node_exchange_approach

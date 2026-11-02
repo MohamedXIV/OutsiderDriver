@@ -30,7 +30,6 @@ namespace OutsiderDriver.Rides
         private RideOffer _reservedOffer;
         private int _offerSequence;
         private int _lastGenerationAttemptMinutes = int.MinValue;
-        private bool _locationsCached;
         private bool _notifying;
 
         public event Action<IReadOnlyList<RideOffer>> OnOffersChanged;
@@ -128,7 +127,7 @@ namespace OutsiderDriver.Rides
             }
 
             int now = NowMinutes;
-            if (offer.IsExpired(now))
+            if (offer.IsExpired(now) || !IsOfferValid(offer))
             {
                 ExpireIfNeeded();
                 return false;
@@ -140,13 +139,13 @@ namespace OutsiderDriver.Rides
             }
 
             int index = IndexOfBoardOffer(offer.OfferId);
-            if (index < 0)
+            if (index < 0 || !IsOfferValid(_offers[index]))
             {
                 return false;
             }
 
+            _reservedOffer = _offers[index];
             _offers.RemoveAt(index);
-            _reservedOffer = offer;
             MarkBoardChanged();
             NotifyOffersChanged();
             return true;
@@ -160,9 +159,12 @@ namespace OutsiderDriver.Rides
             }
 
             int now = NowMinutes;
-            if (_reservedOffer.IsExpired(now))
+            if (_reservedOffer.IsExpired(now) || !IsOfferValid(_reservedOffer))
             {
-                AddCooldown(_reservedOffer.Passenger.PassengerId, now);
+                if (_reservedOffer.IsExpired(now))
+                {
+                    AddCooldown(_reservedOffer.Passenger.PassengerId, now);
+                }
                 _reservedOffer = null;
                 MarkBoardChanged();
                 NotifyOffersChanged();
@@ -181,6 +183,13 @@ namespace OutsiderDriver.Rides
         {
             if (offer == null || _reservedOffer == null || !IsSameOffer(_reservedOffer, offer))
             {
+                return false;
+            }
+
+            if (_reservedOffer.IsExpired(NowMinutes) || !IsOfferValid(_reservedOffer))
+            {
+                PruneExpired(NowMinutes);
+                NotifyOffersChanged();
                 return false;
             }
 
@@ -234,7 +243,7 @@ namespace OutsiderDriver.Rides
                 return false;
             }
 
-            if (offer.IsExpired(now))
+            if (offer.IsExpired(now) || !IsOfferValid(offer))
             {
                 ExpireIfNeeded();
                 return false;
@@ -288,7 +297,9 @@ namespace OutsiderDriver.Rides
                     candidate.DistanceMeters,
                     candidate.QuotedFare,
                     now,
-                    now + _config.OfferLifetimeMinutes));
+                    now + _config.OfferLifetimeMinutes,
+                    candidate.PickupStop,
+                    candidate.DestinationStop));
             }
 
             return _offers.Count > 0;
@@ -298,18 +309,24 @@ namespace OutsiderDriver.Rides
         {
             bool changed = false;
 
-            if (_reservedOffer != null && _reservedOffer.IsExpired(now))
+            if (_reservedOffer != null && (_reservedOffer.IsExpired(now) || !IsOfferValid(_reservedOffer)))
             {
-                AddCooldown(_reservedOffer.Passenger.PassengerId, now);
+                if (_reservedOffer.IsExpired(now))
+                {
+                    AddCooldown(_reservedOffer.Passenger.PassengerId, now);
+                }
                 _reservedOffer = null;
                 changed = true;
             }
 
             for (int i = _offers.Count - 1; i >= 0; i--)
             {
-                if (_offers[i].IsExpired(now))
+                if (_offers[i].IsExpired(now) || !IsOfferValid(_offers[i]))
                 {
-                    AddCooldown(_offers[i].Passenger.PassengerId, now);
+                    if (_offers[i].IsExpired(now))
+                    {
+                        AddCooldown(_offers[i].Passenger.PassengerId, now);
+                    }
                     _offers.RemoveAt(i);
                     changed = true;
                 }
@@ -353,12 +370,17 @@ namespace OutsiderDriver.Rides
                 }
 
                 var pickupNode = _roadNetwork.GetNode(schedule.PreferredNodeId);
-                if (pickupNode == null || pickupNode.ConnectedNodes.Count == 0)
+                var pickupStop = _worldRegistry.GetTaxiStopForAccessNode(pickupNode);
+                if (pickupStop == null || !pickupStop.Validate(_roadNetwork, 4.5f, 2f, out _))
                 {
                     continue;
                 }
 
-                var pickupLocation = FindLocationByNode(pickupNode);
+                var pickupLocation = FindLocationByStop(pickupStop);
+                if (pickupLocation == null)
+                {
+                    continue;
+                }
                 var pickupDistrict = ResolveDistrict(pickupLocation != null ? pickupLocation.DistrictId : schedule.DistrictId);
 
                 OfferCandidate chosen = null;
@@ -367,7 +389,7 @@ namespace OutsiderDriver.Rides
                 for (int d = 0; d < _locations.Count; d++)
                 {
                     var destination = _locations[d];
-                    if (destination.Node == null || ReferenceEquals(destination.Node, pickupNode))
+                    if (destination.Stop == null || ReferenceEquals(destination.Stop, pickupStop))
                     {
                         continue;
                     }
@@ -378,7 +400,7 @@ namespace OutsiderDriver.Rides
                     }
 
                     var district = pickupDistrict ?? destination.District;
-                    if (!RideFareCalculator.TryQuote(_roadNetwork, passenger, pickupNode, destination.Node, district, out var quote))
+                    if (!RideFareCalculator.TryQuote(_roadNetwork, passenger, pickupStop, destination.Stop, district, out var quote))
                     {
                         continue;
                     }
@@ -399,7 +421,9 @@ namespace OutsiderDriver.Rides
                             destination.LocationId,
                             district,
                             quote.DistanceMeters,
-                            quote.QuotedFare);
+                            quote.QuotedFare,
+                            pickupStop,
+                            destination.Stop);
                     }
                 }
 
@@ -423,69 +447,61 @@ namespace OutsiderDriver.Rides
 
         private void EnsureLocations()
         {
-            if (_locationsCached)
-            {
-                return;
-            }
-
-            _locationsCached = true;
+            _locations.Clear();
             if (_worldRegistry == null)
             {
                 return;
             }
 
-            if (_worldRegistry.AllLocations.Count == 0)
+            var stops = _worldRegistry.AllTaxiStops;
+            for (int i = 0; i < stops.Count; i++)
             {
-                _worldRegistry.RebuildRegistry();
-            }
-
-            var seenLocations = new HashSet<string>(StringComparer.Ordinal);
-            var seenNodes = new HashSet<string>(StringComparer.Ordinal);
-
-            for (int i = 0; i < _worldRegistry.AllLocations.Count; i++)
-            {
-                var anchor = _worldRegistry.AllLocations[i];
-                if (anchor == null || string.IsNullOrWhiteSpace(anchor.LocationId))
+                var stop = stops[i];
+                if (stop == null || !stop.Validate(_roadNetwork, 4.5f, 2f, out _)
+                    || _worldRegistry.GetTaxiStop(stop.StopId) != stop || stop.Location == null)
                 {
                     continue;
                 }
 
-                if (!seenLocations.Add(anchor.LocationId))
-                {
-                    continue;
-                }
-
-                var node = anchor.AccessRoadNode ?? _worldRegistry.GetAccessNodeForLocation(anchor.LocationId);
-                if (node == null || node.ConnectedNodes.Count == 0)
-                {
-                    continue;
-                }
-
-                if (!seenNodes.Add(node.NodeId))
-                {
-                    continue;
-                }
-
+                var anchor = stop.Location;
                 string districtId = anchor.LocationData != null ? anchor.LocationData.DistrictId : string.Empty;
-                _locations.Add(new LocationDestination(
-                    anchor.LocationId,
-                    node,
-                    ResolveDistrict(districtId),
-                    districtId));
+                _locations.Add(new LocationDestination(anchor.LocationId, anchor.AccessRoadNode,
+                    ResolveDistrict(districtId), districtId, stop));
             }
         }
 
-        private LocationDestination FindLocationByNode(RoadNode node)
+        private LocationDestination FindLocationByStop(TaxiStopAnchor stop)
         {
             for (int i = 0; i < _locations.Count; i++)
             {
-                if (string.Equals(_locations[i].Node.NodeId, node.NodeId, StringComparison.Ordinal))
+                if (_locations[i].Stop == stop)
                 {
                     return _locations[i];
                 }
             }
 
             return null;
+        }
+
+        private bool IsOfferValid(RideOffer offer)
+        {
+            if (offer == null || offer.PickupStop == null || offer.DestinationStop == null
+                || !string.Equals(offer.PickupStopId, offer.PickupStop.StopId, StringComparison.Ordinal)
+                || !string.Equals(offer.DestinationStopId, offer.DestinationStop.StopId, StringComparison.Ordinal)
+                || _worldRegistry.GetTaxiStop(offer.PickupStopId) != offer.PickupStop
+                || _worldRegistry.GetTaxiStop(offer.DestinationStopId) != offer.DestinationStop
+                || offer.PickupStop.Location.AccessRoadNode != offer.PickupNode
+                || offer.DestinationStop.Location.AccessRoadNode != offer.DestinationNode)
+            {
+                return false;
+            }
+
+            // Authoring changes invalidate the displayed snapshot instead of silently changing
+            // its route or asking the player to accept a different fare under the same identity.
+            return RideFareCalculator.TryQuote(_roadNetwork, offer.Passenger, offer.PickupStop,
+                offer.DestinationStop, offer.District, out var quote)
+                && Math.Abs(quote.DistanceMeters - offer.PlannedDistanceMeters) < 0.01f
+                && quote.QuotedFare == offer.QuotedFare;
         }
 
         private DistrictConfigSO ResolveDistrict(string districtId)
@@ -573,13 +589,15 @@ namespace OutsiderDriver.Rides
             public readonly RoadNode Node;
             public readonly DistrictConfigSO District;
             public readonly string DistrictId;
+            public readonly TaxiStopAnchor Stop;
 
-            public LocationDestination(string locationId, RoadNode node, DistrictConfigSO district, string districtId)
+            public LocationDestination(string locationId, RoadNode node, DistrictConfigSO district, string districtId, TaxiStopAnchor stop)
             {
                 LocationId = locationId;
                 Node = node;
                 District = district;
                 DistrictId = districtId;
+                Stop = stop;
             }
         }
 
@@ -593,6 +611,8 @@ namespace OutsiderDriver.Rides
             public readonly DistrictConfigSO District;
             public readonly float DistanceMeters;
             public readonly int QuotedFare;
+            public readonly TaxiStopAnchor PickupStop;
+            public readonly TaxiStopAnchor DestinationStop;
 
             public OfferCandidate(
                 PassengerDefinitionSO passenger,
@@ -602,7 +622,9 @@ namespace OutsiderDriver.Rides
                 string destinationLocationId,
                 DistrictConfigSO district,
                 float distanceMeters,
-                int quotedFare)
+                int quotedFare,
+                TaxiStopAnchor pickupStop,
+                TaxiStopAnchor destinationStop)
             {
                 Passenger = passenger;
                 PickupNode = pickupNode;
@@ -612,6 +634,8 @@ namespace OutsiderDriver.Rides
                 District = district;
                 DistanceMeters = distanceMeters;
                 QuotedFare = quotedFare;
+                PickupStop = pickupStop;
+                DestinationStop = destinationStop;
             }
         }
     }

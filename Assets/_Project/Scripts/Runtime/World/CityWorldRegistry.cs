@@ -30,11 +30,15 @@ namespace OutsiderDriver.World
         private readonly Dictionary<string, DistrictConfigSO> _districtsById = new Dictionary<string, DistrictConfigSO>(StringComparer.Ordinal);
         private readonly Dictionary<string, CityLocationAnchor> _locationsById = new Dictionary<string, CityLocationAnchor>(StringComparer.Ordinal);
         private readonly List<CityLocationAnchor> _allLocations = new List<CityLocationAnchor>();
+        private readonly List<TaxiStopAnchor> _allTaxiStops = new List<TaxiStopAnchor>();
+        private readonly HashSet<string> _duplicateTaxiStopIds = new HashSet<string>(StringComparer.Ordinal);
 
         public RoadNetwork RoadNetwork => _roadNetwork;
         public HomeNeighborhoodLayout HomeNeighborhoodLayout => _homeNeighborhoodLayout;
         public IReadOnlyList<DistrictConfigSO> Districts => _districts;
         public IReadOnlyList<CityLocationAnchor> AllLocations => _allLocations;
+        /// <summary>Includes invalid and disabled authoring for diagnostics; query methods filter eligibility.</summary>
+        public IReadOnlyList<TaxiStopAnchor> AllTaxiStops => _allTaxiStops;
         public CityLocationAnchor PlayerHomeGarageAnchor => _playerHomeGarageAnchor;
         public CityLocationAnchor PrimaryCommercialDestinationAnchor => _primaryCommercialDestinationAnchor;
 
@@ -109,6 +113,8 @@ namespace OutsiderDriver.World
             {
                 var anchor = anchors[i];
                 if (anchor == null) continue;
+                var owner = anchor.GetComponentInParent<CityWorldRegistry>(includeInactive: true);
+                if (owner != null && owner != this) continue;
 
                 if (anchor.AccessRoadNode == null && _roadNetwork != null && anchor.LocationData != null &&
                     !string.IsNullOrEmpty(anchor.LocationData.ConnectedRoadNodeId))
@@ -135,6 +141,87 @@ namespace OutsiderDriver.World
                     _primaryCommercialDestinationAnchor = anchor;
                 }
             }
+
+            _allTaxiStops.Clear();
+            _duplicateTaxiStopIds.Clear();
+            var stopIds = new HashSet<string>(StringComparer.Ordinal);
+            var stops = GetComponentsInChildren<TaxiStopAnchor>(includeInactive: true);
+            for (int i = 0; i < stops.Length; i++)
+            {
+                var stop = stops[i];
+                // A nested registry owns its own stops. Never import foreign scene stops globally.
+                if (stop == null || stop.GetComponentInParent<CityWorldRegistry>(includeInactive: true) != this) continue;
+                _allTaxiStops.Add(stop);
+                if (!string.IsNullOrWhiteSpace(stop.StopId) && !stopIds.Add(stop.StopId))
+                    _duplicateTaxiStopIds.Add(stop.StopId);
+            }
+            for (int i = 0; i < _allTaxiStops.Count; i++)
+            {
+                var stop = _allTaxiStops[i];
+                stop.SetIdentityAmbiguous(!string.IsNullOrWhiteSpace(stop.StopId) && _duplicateTaxiStopIds.Contains(stop.StopId));
+                stop.Prepare(_roadNetwork);
+            }
+        }
+
+        /// <summary>Returns only a sole valid authored stop. No global scene scan is performed.</summary>
+        public TaxiStopAnchor GetTaxiStop(string stopId)
+        {
+            if (string.IsNullOrWhiteSpace(stopId) || _duplicateTaxiStopIds.Contains(stopId)) return null;
+            TaxiStopAnchor result = null;
+            for (int i = 0; i < _allTaxiStops.Count; i++)
+            {
+                var stop = _allTaxiStops[i];
+                if (stop == null || stop.StopId != stopId || !EligibleStop(stop)) continue;
+                if (result != null) return null;
+                result = stop;
+            }
+            return result;
+        }
+
+        public TaxiStopAnchor GetTaxiStopForLocation(string locationId)
+        {
+            if (string.IsNullOrWhiteSpace(locationId)) return null;
+            TaxiStopAnchor result = null;
+            for (int i = 0; i < _allTaxiStops.Count; i++)
+            {
+                var stop = _allTaxiStops[i];
+                if (!EligibleStop(stop) || stop.Location.LocationId != locationId) continue;
+                if (result != null) return null;
+                result = stop;
+            }
+            return result;
+        }
+
+        public TaxiStopAnchor GetTaxiStopForAccessNode(RoadNode accessNode)
+        {
+            if (accessNode == null) return null;
+            TaxiStopAnchor result = null;
+            for (int i = 0; i < _allTaxiStops.Count; i++)
+            {
+                var stop = _allTaxiStops[i];
+                if (!EligibleStop(stop) || stop.ApproachNode != accessNode) continue;
+                if (result != null) return null;
+                result = stop;
+            }
+            return result;
+        }
+
+        private bool EligibleStop(TaxiStopAnchor stop)
+        {
+            if (stop == null || !stop.IsPrepared || stop.Location == null || !stop.Location.isActiveAndEnabled ||
+                string.IsNullOrWhiteSpace(stop.StopId) || _duplicateTaxiStopIds.Contains(stop.StopId) ||
+                stop.Location.AccessRoadNode != stop.ApproachNode ||
+                stop.Location.GetComponentInParent<CityWorldRegistry>(includeInactive: true) != this) return false;
+            // Resolve location identity in this registry; duplicated location IDs are ambiguous too.
+            CityLocationAnchor location = null;
+            for (int i = 0; i < _allLocations.Count; i++)
+            {
+                var candidate = _allLocations[i];
+                if (candidate == null || candidate.LocationId != stop.Location.LocationId) continue;
+                if (location != null) return false;
+                location = candidate;
+            }
+            return location == stop.Location;
         }
 
         public bool TryGetDistrict(string districtId, out DistrictConfigSO district)
@@ -271,6 +358,16 @@ namespace OutsiderDriver.World
                         issues.Add($"PlayerHomeGarage location '{loc.LocationId}' must occupy a 2-story building (found FloorCount={loc.LocationData.FloorCount}).");
                     }
                 }
+            }
+
+            for (int i = 0; i < _allTaxiStops.Count; i++)
+            {
+                var stop = _allTaxiStops[i];
+                if (stop == null) continue;
+                if (!stop.Validate(_roadNetwork, 4.5f, 2f, out var diagnostic))
+                    issues.Add($"TaxiStopAnchor '{stop.StopId}' ('{stop.name}'): {diagnostic}");
+                else if (!EligibleStop(stop))
+                    issues.Add($"TaxiStopAnchor '{stop.StopId}' references an unregistered or ambiguous location identity.");
             }
 
             return issues.Count == 0;

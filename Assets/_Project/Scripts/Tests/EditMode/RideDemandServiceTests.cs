@@ -14,20 +14,38 @@ namespace OutsiderDriver.Tests.EditMode
 {
     public class RideDemandServiceTests
     {
-        private readonly List<Object> _spawnedObjects = new List<Object>();
+        private readonly List<TaxiStopTestFixture> _worlds = new List<TaxiStopTestFixture>();
 
         [TearDown]
         public void TearDown()
         {
-            for (int i = 0; i < _spawnedObjects.Count; i++)
-            {
-                if (_spawnedObjects[i] != null)
-                {
-                    Object.DestroyImmediate(_spawnedObjects[i]);
-                }
-            }
+            for (int i = _worlds.Count - 1; i >= 0; i--) _worlds[i].Dispose();
+            _worlds.Clear();
+            VehicleController.ClearActiveVehicles();
+        }
 
-            _spawnedObjects.Clear();
+        [Test]
+        public void ConnectedLocationsWithoutAuthoredStops_ProduceNoOffers()
+        {
+            var world = new TaxiStopTestFixture(authorStops: false);
+            _worlds.Add(world);
+            world.Time.SetTime(new WorldTime(day: 1, hour: 12, minute: 0));
+            Assert.AreEqual(3, world.Registry.AllLocations.Count);
+            Assert.IsEmpty(world.Registry.AllTaxiStops);
+            var service = CreateService(world, seedOverride: 7);
+            Assert.IsEmpty(service.GetEligibleOffers());
+            Assert.IsFalse(service.TryEnsureOffer(out _));
+        }
+
+        [Test]
+        public void DisabledPickupBay_DoesNotFallBackToItsConnectedRoadNode()
+        {
+            var world = CreateDemandWorld();
+            world.Time.SetTime(new WorldTime(day: 1, hour: 9, minute: 0));
+            world.Pickup.enabled = false;
+            var service = CreateService(world, seedOverride: 7);
+            Assert.IsEmpty(service.GetEligibleOffers());
+            Assert.IsFalse(service.TryEnsureOffer(out _));
         }
 
         [Test]
@@ -232,6 +250,9 @@ namespace OutsiderDriver.Tests.EditMode
             var config = UnityEditor.AssetDatabase.LoadAssetAtPath<RideDemandConfigSO>(configPath);
             Assert.IsNotNull(network);
             Assert.IsNotNull(registry);
+            registry.RebuildRegistry();
+            Assert.GreaterOrEqual(registry.AllTaxiStops.Count, 2,
+                "Production content gate: a human must author safe bays in OutsiderCity before this scene can supply taxi work.");
             Assert.IsNotNull(config);
             Assert.GreaterOrEqual(config.Passengers.Count, 2);
 
@@ -283,6 +304,9 @@ namespace OutsiderDriver.Tests.EditMode
             var config = UnityEditor.AssetDatabase.LoadAssetAtPath<RideDemandConfigSO>(configPath);
             Assert.IsNotNull(network);
             Assert.IsNotNull(registry);
+            registry.RebuildRegistry();
+            Assert.GreaterOrEqual(registry.AllTaxiStops.Count, 2,
+                "Production content gate: a human must author safe bays in OutsiderCity before this scene can supply taxi work.");
             Assert.IsNotNull(taxi);
             Assert.IsNotNull(config);
 
@@ -293,18 +317,15 @@ namespace OutsiderDriver.Tests.EditMode
             Assert.IsTrue(demand.AcceptOffer(offer));
 
             var playerState = new PlayerStateService();
-            using var rideService = new RideLifecycleService(network, taxi, playerState);
-            taxi.transform.position = offer.PickupNode.Position;
-            Assert.IsTrue(rideService.TryOfferHail(offer.Passenger, offer.PickupNode, offer.DestinationNode, offer.District));
+            using var rideService = new RideLifecycleService(network, taxi, playerState, time, registry);
+            Assert.IsTrue(rideService.TryOfferHail(offer.Passenger, offer.PickupStop, offer.DestinationStop, offer.District));
             Assert.AreEqual(offer.QuotedFare, rideService.ActiveRequest.QuotedBaseFare);
             Assert.IsTrue(rideService.AcceptHail());
+            TaxiStopTestFixture.DriveUntilStopped(taxi);
             Assert.AreEqual(RidePhase.AwaitingBoarding, rideService.CurrentPhase);
             Assert.IsTrue(rideService.BoardPassenger());
 
-            for (int i = 0; i < 5000 && taxi.HasActiveRoute; i++)
-            {
-                taxi.TickMovement(0.05f);
-            }
+            TaxiStopTestFixture.DriveUntilStopped(taxi);
 
             Assert.IsFalse(taxi.HasActiveRoute, "The settled production ride must complete on the real city graph.");
             Assert.AreEqual(RidePhase.ArrivedAtDestination, rideService.CurrentPhase);
@@ -317,7 +338,7 @@ namespace OutsiderDriver.Tests.EditMode
             Assert.IsNotNull(nextOffer);
         }
 
-        private static void AssertValidOffers(DemandWorld world, IReadOnlyList<RideOffer> offers)
+        private static void AssertValidOffers(TaxiStopTestFixture world, IReadOnlyList<RideOffer> offers)
         {
             for (int i = 0; i < offers.Count; i++)
             {
@@ -331,8 +352,14 @@ namespace OutsiderDriver.Tests.EditMode
                 Assert.Greater(offer.QuotedFare, 0);
                 Assert.GreaterOrEqual(offer.PlannedDistanceMeters, world.Config.MinimumRideDistanceMeters);
 
-                var path = world.Network.FindPath(offer.PickupNode, offer.DestinationNode);
-                Assert.GreaterOrEqual(path.Count, 2, "Every generated offer must have a real connected route.");
+                Assert.IsNotNull(offer.PickupStop);
+                Assert.IsNotNull(offer.DestinationStop);
+                Assert.AreSame(offer.PickupStop, world.Registry.GetTaxiStop(offer.PickupStopId));
+                Assert.AreSame(offer.DestinationStop, world.Registry.GetTaxiStop(offer.DestinationStopId));
+                Assert.IsTrue(RideFareCalculator.TryQuote(world.Network, offer.Passenger, offer.PickupStop,
+                    offer.DestinationStop, offer.District, out var quote));
+                Assert.AreEqual(quote.DistanceMeters, offer.PlannedDistanceMeters, 0.001f);
+                Assert.AreEqual(quote.QuotedFare, offer.QuotedFare);
             }
         }
 
@@ -348,8 +375,12 @@ namespace OutsiderDriver.Tests.EditMode
                 Assert.IsFalse(string.IsNullOrEmpty(offer.DestinationLocationId));
                 Assert.Greater(offer.PlannedDistanceMeters, 0f);
                 Assert.Greater(offer.QuotedFare, 0);
-                var path = network.FindPath(offer.PickupNode, offer.DestinationNode);
-                Assert.GreaterOrEqual(path.Count, 2);
+                Assert.IsNotNull(offer.PickupStop);
+                Assert.IsNotNull(offer.DestinationStop);
+                Assert.IsTrue(RideFareCalculator.TryQuote(network, offer.Passenger, offer.PickupStop,
+                    offer.DestinationStop, offer.District, out var quote));
+                Assert.AreEqual(quote.DistanceMeters, offer.PlannedDistanceMeters, 0.001f);
+                Assert.AreEqual(quote.QuotedFare, offer.QuotedFare);
             }
         }
 
@@ -385,145 +416,16 @@ namespace OutsiderDriver.Tests.EditMode
             return false;
         }
 
-        private RideDemandService CreateService(DemandWorld world, int seedOverride)
+        private RideDemandService CreateService(TaxiStopTestFixture world, int seedOverride)
         {
             return new RideDemandService(world.Network, world.Registry, world.Time, world.Config, seedOverride);
         }
 
-        private DemandWorld CreateDemandWorld()
+        private TaxiStopTestFixture CreateDemandWorld()
         {
-            var gridGo = Track(new GameObject("DemandGrid"));
-            var grid = gridGo.AddComponent<Grid>();
-            grid.cellLayout = GridLayout.CellLayout.IsometricZAsY;
-            grid.cellSize = new Vector3(1f, 0.5f, 1f);
-            grid.cellSwizzle = GridLayout.CellSwizzle.XYZ;
-
-            var networkGo = Track(new GameObject("DemandNetwork"));
-            var network = networkGo.AddComponent<RoadNetwork>();
-            network.ConfigureGrid(grid);
-
-            var nodeA = CreateNode(networkGo.transform, grid, "node_a", 0, 0);
-            var nodeB = CreateNode(networkGo.transform, grid, "node_b", 40, 0);
-            var nodeC = CreateNode(networkGo.transform, grid, "node_c", 0, 40);
-            var nodeD = CreateNode(networkGo.transform, grid, "node_d", 40, 40);
-            var nodeE = CreateNode(networkGo.transform, grid, "node_e", 80, 0);
-            var nodeF = CreateNode(networkGo.transform, grid, "node_f", 80, 40);
-            Connect(nodeA, nodeB);
-            Connect(nodeA, nodeC);
-            Connect(nodeB, nodeD);
-            Connect(nodeC, nodeD);
-            Connect(nodeB, nodeE);
-            Connect(nodeD, nodeF);
-            Connect(nodeE, nodeF);
-            network.RebuildNetwork();
-
-            var districtOne = CreateDistrict("district_01", 15, 2.0f);
-            var districtTwo = CreateDistrict("district_02", 20, 2.5f);
-
-            var registryGo = Track(new GameObject("DemandRegistry"));
-            var registry = registryGo.AddComponent<CityWorldRegistry>();
-            AddLocation(registryGo.transform, "location_d", "district_01", nodeD);
-            AddLocation(registryGo.transform, "location_e", "district_02", nodeE);
-            AddLocation(registryGo.transform, "location_f", "district_02", nodeF);
-            registry.Configure(network, null, new[] { districtOne, districtTwo });
-
-            var residentOne = CreatePassenger("resident_001", 1.0f, 0.2f, 6, 14, "district_01", nodeA.NodeId);
-            var residentTwo = CreatePassenger("resident_002", 1.1f, 0.15f, 12, 22, "district_02", nodeB.NodeId);
-            var residentThree = CreatePassenger("resident_003", 0.9f, 0.25f, 18, 24, "district_01", nodeC.NodeId);
-
-            var config = Track(ScriptableObject.CreateInstance<RideDemandConfigSO>());
-            config.Configure(
-                new[] { residentOne, residentTwo, residentThree },
-                minimumRideDistanceMeters: 25f,
-                offerLifetimeMinutes: 12,
-                declineCooldownMinutes: 20,
-                randomSeed: 0,
-                maxVisibleOffers: 2);
-
-            var time = new TimeService(null);
-            return new DemandWorld(network, registry, time, config);
-        }
-
-        private void AddLocation(Transform parent, string locationId, string districtId, RoadNode accessNode)
-        {
-            var location = Track(ScriptableObject.CreateInstance<WorldLocationSO>());
-            location.Configure(
-                locationId,
-                districtId,
-                WorldLocationCategory.CommercialMarket,
-                locationId,
-                locationId,
-                locationId,
-                accessNode.NodeId,
-                floorCount: 1);
-
-            var go = Track(new GameObject("Anchor_" + locationId));
-            go.transform.SetParent(parent, false);
-            var anchor = go.AddComponent<CityLocationAnchor>();
-            anchor.Configure(location, accessNode, Vector2Int.zero, Vector2Int.one, locationId);
-        }
-
-        private PassengerDefinitionSO CreatePassenger(
-            string id,
-            float fareMultiplier,
-            float tipGenerosity,
-            int startHour,
-            int endHour,
-            string districtId,
-            string preferredNodeId)
-        {
-            var passenger = Track(ScriptableObject.CreateInstance<PassengerDefinitionSO>());
-            passenger.Initialize(id, id, "species_tbd", "Common", fareMultiplier, tipGenerosity);
-            passenger.SetSchedule(new[]
-            {
-                new PassengerScheduleEntry(startHour, endHour, districtId, preferredNodeId)
-            });
-            return passenger;
-        }
-
-        private DistrictConfigSO CreateDistrict(string id, int baseFare, float perUnit)
-        {
-            var district = Track(ScriptableObject.CreateInstance<DistrictConfigSO>());
-            district.Initialize(id, id, 4, baseFare, perUnit);
-            return district;
-        }
-
-        private RoadNode CreateNode(Transform parent, Grid grid, string id, int cellX, int cellY)
-        {
-            var go = Track(new GameObject(id));
-            go.transform.SetParent(parent, false);
-            go.transform.position = grid.CellToWorld(new Vector3Int(cellX, cellY, 0));
-            var node = go.AddComponent<RoadNode>();
-            node.Configure(id, RoadNodePriority.MainArtery, RoadPieceType.Straight, "district_01");
-            return node;
-        }
-
-        private static void Connect(RoadNode a, RoadNode b)
-        {
-            a.AddConnection(b);
-            b.AddConnection(a);
-        }
-
-        private T Track<T>(T obj) where T : Object
-        {
-            _spawnedObjects.Add(obj);
-            return obj;
-        }
-
-        private sealed class DemandWorld
-        {
-            public readonly RoadNetwork Network;
-            public readonly CityWorldRegistry Registry;
-            public readonly TimeService Time;
-            public readonly RideDemandConfigSO Config;
-
-            public DemandWorld(RoadNetwork network, CityWorldRegistry registry, TimeService time, RideDemandConfigSO config)
-            {
-                Network = network;
-                Registry = registry;
-                Time = time;
-                Config = config;
-            }
+            var world = new TaxiStopTestFixture();
+            _worlds.Add(world);
+            return world;
         }
     }
 }

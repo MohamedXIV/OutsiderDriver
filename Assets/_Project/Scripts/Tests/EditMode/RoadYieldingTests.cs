@@ -74,7 +74,7 @@ namespace OutsiderDriver.Tests.EditMode
             Assert.IsTrue(followerCar.IsYielding, "Follower vehicle should yield when lead vehicle is within forward sensor range.");
 
             // Move lead vehicle far ahead out of sensor range
-            leadCar.transform.position = CellWorld(8, 0);
+            leadCar.transform.position = CellWorld(30, 0);
             followerCar.TickMovement(0.1f);
 
             Assert.IsFalse(followerCar.IsYielding, "Follower vehicle should resume moving once lead car clears sensor range.");
@@ -127,9 +127,9 @@ namespace OutsiderDriver.Tests.EditMode
             center.IntersectionClearanceRadius = 6f;
 
             var west = CreateNode(network.transform, "West", 4, 10);
-            var east = CreateNode(network.transform, "East", 16, 10);
+            var east = CreateNode(network.transform, "East", 26, 10);
             var south = CreateNode(network.transform, "South", 10, 4);
-            var north = CreateNode(network.transform, "North", 10, 16);
+            var north = CreateNode(network.transform, "North", 10, 26);
 
             Connect(west, center);
             Connect(center, east);

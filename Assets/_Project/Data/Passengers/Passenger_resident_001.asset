@@ -27,4 +27,4 @@ MonoBehaviour:
   - StartHour: 6
     EndHour: 14
     DistrictId: district_01
-    PreferredNodeId: node_d01_se_corner
+    PreferredNodeId: node_workshop_approach

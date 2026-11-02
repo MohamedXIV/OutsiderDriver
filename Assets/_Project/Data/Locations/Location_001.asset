@@ -24,4 +24,4 @@ MonoBehaviour:
   - Kora-Dar 2
   _summary: 'One two-story building: ground-floor taxi garage bay and workshop threshold, upper-floor living quarters.'
   _floorCount: 2
-  _connectedRoadNodeId: node_d01_home_bay
+  _connectedRoadNodeId: node_home_approach

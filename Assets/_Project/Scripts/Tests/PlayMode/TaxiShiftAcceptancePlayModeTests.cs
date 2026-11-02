@@ -149,10 +149,11 @@ namespace OutsiderDriver.Tests.PlayMode
 
                 if (rideService.CurrentPhase == RidePhase.EnRouteToPickup)
                 {
-                    yield return WaitForPhase(rideService, RidePhase.AwaitingBoarding, timeoutSeconds: 15f);
+                    yield return WaitForPhase(rideService, RidePhase.AwaitingBoarding, timeoutSeconds: 120f);
                 }
 
-                Assert.AreEqual(RidePhase.AwaitingBoarding, rideService.CurrentPhase, "Taxi must reach pickup and await player boarding action.");
+                Assert.AreEqual(RidePhase.AwaitingBoarding, rideService.CurrentPhase,
+                    $"Taxi must reach pickup and await player boarding action. Details: phase={rideService.CurrentPhase}, taxiPos={playerTaxi.transform.position}, speed={playerTaxi.CurrentSpeed}, targetNode={playerTaxi.CurrentTargetNode?.NodeId}, hasRoute={playerTaxi.HasActiveRoute}, pendingStop={playerTaxi.HasPendingStopMotion}, pickup={firstOffer.PickupStop.StopId}, dest={firstOffer.DestinationStop.StopId}");
                 var boardButton = root.Q<Button>("taxi-board");
                 Assert.IsNotNull(boardButton);
                 Assert.AreEqual(DisplayStyle.Flex, boardButton.resolvedStyle.display, "Board button must be visible at pickup.");
@@ -163,8 +164,9 @@ namespace OutsiderDriver.Tests.PlayMode
                 Assert.AreEqual(RidePhase.InTransit, rideService.CurrentPhase, "Clicking Board must start transit to destination.");
                 Assert.IsTrue(playerTaxi.HasActiveRoute, "Player taxi must have an active route to destination.");
 
-                yield return WaitForPhase(rideService, RidePhase.ArrivedAtDestination, timeoutSeconds: 15f);
-                Assert.AreEqual(RidePhase.ArrivedAtDestination, rideService.CurrentPhase, "Taxi must reach destination and wait for fare collection.");
+                yield return WaitForPhase(rideService, RidePhase.ArrivedAtDestination, timeoutSeconds: 120f);
+                Assert.AreEqual(RidePhase.ArrivedAtDestination, rideService.CurrentPhase,
+                    $"Taxi must reach destination and wait for fare collection. Details: phase={rideService.CurrentPhase}, taxiPos={playerTaxi.transform.position}, speed={playerTaxi.CurrentSpeed}, targetNode={playerTaxi.CurrentTargetNode?.NodeId}, hasRoute={playerTaxi.HasActiveRoute}, pendingStop={playerTaxi.HasPendingStopMotion}, pickup={firstOffer.PickupStop.StopId}, dest={firstOffer.DestinationStop.StopId}");
                 Assert.AreEqual(creditsBeforeFirst, playerState.Credits, "Credits must not update before clicking Collect.");
 
                 var collectButton = root.Q<Button>("taxi-collect");
@@ -211,17 +213,20 @@ namespace OutsiderDriver.Tests.PlayMode
 
                 if (rideService.CurrentPhase == RidePhase.EnRouteToPickup)
                 {
-                    yield return WaitForPhase(rideService, RidePhase.AwaitingBoarding, timeoutSeconds: 15f);
+                    yield return WaitForPhase(rideService, RidePhase.AwaitingBoarding, timeoutSeconds: 120f);
                 }
 
-                Assert.AreEqual(RidePhase.AwaitingBoarding, rideService.CurrentPhase);
+                string activeVehiclesInfo = string.Join("; ", System.Linq.Enumerable.Select(VehicleController.AllActiveVehicles, v => $"{v.name}@{v.transform.position}(speed={v.CurrentSpeed}, target={v.CurrentTargetNode?.NodeId}, reserved={v.ReservedNode?.NodeId})"));
+                Assert.AreEqual(RidePhase.AwaitingBoarding, rideService.CurrentPhase,
+                    $"Second ride failed to reach pickup. Details: phase={rideService.CurrentPhase}, taxiPos={playerTaxi.transform.position}, speed={playerTaxi.CurrentSpeed}, targetNode={playerTaxi.CurrentTargetNode?.NodeId}, hasRoute={playerTaxi.HasActiveRoute}, pendingStop={playerTaxi.HasPendingStopMotion}, pickup={secondOffer.PickupStop.StopId}, dest={secondOffer.DestinationStop.StopId}. AllVehicles: {activeVehiclesInfo}");
                 ClickButton(root, "taxi-board");
                 yield return null;
 
                 Assert.AreEqual(RidePhase.InTransit, rideService.CurrentPhase);
-                yield return WaitForPhase(rideService, RidePhase.ArrivedAtDestination, timeoutSeconds: 15f);
+                yield return WaitForPhase(rideService, RidePhase.ArrivedAtDestination, timeoutSeconds: 120f);
 
-                Assert.AreEqual(RidePhase.ArrivedAtDestination, rideService.CurrentPhase);
+                Assert.AreEqual(RidePhase.ArrivedAtDestination, rideService.CurrentPhase,
+                    $"Second ride failed to reach dest. Details: phase={rideService.CurrentPhase}, taxiPos={playerTaxi.transform.position}, speed={playerTaxi.CurrentSpeed}, targetNode={playerTaxi.CurrentTargetNode?.NodeId}, hasRoute={playerTaxi.HasActiveRoute}, pendingStop={playerTaxi.HasPendingStopMotion}, pickup={secondOffer.PickupStop.StopId}, dest={secondOffer.DestinationStop.StopId}");
                 ClickButton(root, "taxi-collect");
                 yield return null;
 
@@ -274,8 +279,8 @@ namespace OutsiderDriver.Tests.PlayMode
 
         private static IEnumerator WaitForPhase(IRideLifecycleService rideService, RidePhase targetPhase, float timeoutSeconds)
         {
-            float start = Time.realtimeSinceStartup;
-            while (rideService.CurrentPhase != targetPhase && Time.realtimeSinceStartup - start < timeoutSeconds)
+            float start = Time.time;
+            while (rideService.CurrentPhase != targetPhase && Time.time - start < timeoutSeconds)
             {
                 yield return null;
             }

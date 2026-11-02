@@ -1,231 +1,265 @@
-using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 using OutsiderDriver.Core.State;
 using OutsiderDriver.Core.Time;
-using OutsiderDriver.Data;
-using OutsiderDriver.Navigation;
 using OutsiderDriver.Rides;
 using OutsiderDriver.Vehicles;
+using OutsiderDriver.World;
 
 namespace OutsiderDriver.Tests.EditMode
 {
     public class RideLifecycleServiceTests
     {
-        private readonly List<Object> _spawnedObjects = new List<Object>();
+        private TaxiStopTestFixture _world;
 
-        [TearDown]
-        public void TearDown()
-        {
-            for (int i = 0; i < _spawnedObjects.Count; i++)
-            {
-                if (_spawnedObjects[i] != null)
-                {
-                    Object.DestroyImmediate(_spawnedObjects[i]);
-                }
-            }
-            _spawnedObjects.Clear();
-            VehicleController.ClearActiveVehicles();
-        }
+        [SetUp] public void SetUp() => _world = new TaxiStopTestFixture();
+        [TearDown] public void TearDown() => _world.Dispose();
 
         [Test]
-        public void FullRideLifecycle_HailPickupBoardTransitArriveAndSettle_CreditsPlayerAndRecordsEncounter()
+        public void FullRideLifecycle_UsesAuthoredBays_AndSettlesExactlyOnce()
         {
-            var network = CreateLinearRoadNetwork(out RoadNode nodeStart, out RoadNode nodePickup, out RoadNode nodeDropoff);
-            var taxi = CreateTaxi(nodeStart.Position, network);
-            var timeService = new TimeService(null);
-            timeService.SetTime(new WorldTime(day: 2, hour: 14, minute: 30));
-            var playerState = new PlayerStateService(timeService);
+            var taxi = _world.Taxi();
+            _world.Time.SetTime(new WorldTime(day: 2, hour: 14, minute: 30));
+            var player = new PlayerStateService(_world.Time);
+            using var ride = Service(taxi, player);
+            Assert.IsTrue(ride.TryOfferHail(_world.Passenger, _world.Pickup, _world.Destination, _world.District));
+            int quotedFare = ride.ActiveRequest.QuotedBaseFare;
+            Assert.AreEqual(_world.District.CalculateEstimatedFare(ride.ActiveRequest.PlannedDistance, _world.Passenger.FareMultiplier), quotedFare);
+            Assert.IsTrue(ride.AcceptHail());
+            Assert.AreEqual(RidePhase.EnRouteToPickup, ride.CurrentPhase);
+            Assert.IsFalse(ride.BoardPassenger());
+            TaxiStopTestFixture.DriveUntilStopped(taxi);
+            Assert.AreEqual(RidePhase.AwaitingBoarding, ride.CurrentPhase);
+            Assert.AreSame(_world.Pickup, taxi.ParkedStop);
+            Assert.IsTrue(ride.BoardPassenger());
+            Assert.AreEqual(RidePhase.InTransit, ride.CurrentPhase);
+            Assert.IsFalse(ride.CompleteAndSettleRide());
+            TaxiStopTestFixture.DriveUntilStopped(taxi);
+            Assert.AreEqual(RidePhase.ArrivedAtDestination, ride.CurrentPhase);
+            Assert.AreSame(_world.Destination, taxi.ParkedStop);
 
-            var passenger = CreatePassenger("res_vori", "Vori", fareMultiplier: 1.0f, tipGenerosity: 0.2f);
-            var district = CreateDistrict("district_central", baseFare: 20, perUnit: 2.0f);
-
-            using var rideService = new RideLifecycleService(network, taxi, playerState, timeService);
-
-            // 1. Offer Hail (Pickup at (4,0,0) -> Dropoff at (10,0,0), distance = 6m)
-            // Expected Quoted Fare: 20 + (6 * 2.0) = 32
-            Assert.AreEqual(RidePhase.Idle, rideService.CurrentPhase);
-            bool offered = rideService.TryOfferHail(passenger, nodePickup, nodeDropoff, district);
-            Assert.IsTrue(offered);
-            Assert.AreEqual(RidePhase.HailOffered, rideService.CurrentPhase);
-            Assert.AreEqual(32, rideService.ActiveRequest.QuotedBaseFare);
-
-            // 2. Accept Hail -> Taxi starts at (0,0,0), so transitions to EnRouteToPickup
-            Assert.IsTrue(rideService.AcceptHail());
-            Assert.AreEqual(RidePhase.EnRouteToPickup, rideService.CurrentPhase);
-            Assert.AreEqual(nodePickup, taxi.DestinationNode);
-
-            // Simulate taxi driving to nodePickup
-            SimulateUntilStopped(taxi);
-            Assert.AreEqual(RidePhase.AwaitingBoarding, rideService.CurrentPhase);
-
-            // 3. Board Passenger -> Transitions to InTransit toward nodeDropoff
-            Assert.IsTrue(rideService.BoardPassenger());
-            Assert.AreEqual(RidePhase.InTransit, rideService.CurrentPhase);
-            Assert.AreEqual(nodeDropoff, taxi.DestinationNode);
-
-            // Simulate taxi driving to nodeDropoff
-            SimulateUntilStopped(taxi);
-            Assert.AreEqual(RidePhase.ArrivedAtDestination, rideService.CurrentPhase);
-
-            // 4. Complete and Settle Ride
-            // Base fare = 32, default tip (20% of 32 = 6.4 -> 6) + bonus tip 4 = 10 -> Total = 42
-            int initialCredits = playerState.Credits;
-            RideSettlementResult? completedResult = null;
-            rideService.OnRideCompleted += res => completedResult = res;
-
-            bool settled = rideService.CompleteAndSettleRide(bonusTipCredits: 4, affinityDelta: 12, trustDelta: 8, suspicionDelta: 3);
-            Assert.IsTrue(settled);
-            Assert.AreEqual(RidePhase.Idle, rideService.CurrentPhase);
-            Assert.IsNull(rideService.ActiveRequest);
-
-            Assert.IsTrue(completedResult.HasValue);
-            Assert.AreEqual(32, completedResult.Value.BaseFarePaid);
-            Assert.AreEqual(10, completedResult.Value.TipPaid);
-            Assert.AreEqual(42, completedResult.Value.TotalCreditsEarned);
-            Assert.AreEqual(initialCredits + 42, playerState.Credits);
-
-            var relationship = playerState.GetOrAddResident("res_vori");
+            int creditsBefore = player.Credits;
+            RideSettlementResult? result = null;
+            int completionEvents = 0;
+            ride.OnRideCompleted += value => { result = value; completionEvents++; };
+            Assert.IsTrue(ride.CompleteAndSettleRide(bonusTipCredits: 4, affinityDelta: 12, trustDelta: 8, suspicionDelta: 3));
+            int expectedTip = Mathf.RoundToInt(quotedFare * _world.Passenger.TipGenerosity) + 4;
+            Assert.AreEqual(quotedFare, result.Value.BaseFarePaid);
+            Assert.AreEqual(expectedTip, result.Value.TipPaid);
+            Assert.AreEqual(creditsBefore + quotedFare + expectedTip, player.Credits);
+            Assert.AreEqual(RidePhase.Idle, ride.CurrentPhase);
+            Assert.IsNull(ride.ActiveRequest);
+            Assert.IsFalse(ride.CompleteAndSettleRide());
+            Assert.AreEqual(1, completionEvents);
+            var relationship = player.GetOrAddResident(_world.Passenger.PassengerId);
             Assert.AreEqual(1, relationship.EncounterCount);
             Assert.AreEqual(12, relationship.Affinity);
             Assert.AreEqual(8, relationship.PersonalTrust);
             Assert.AreEqual(3, relationship.SuspicionOfHumanity);
-            Assert.AreEqual(timeService.CurrentTime.TotalMinutes, relationship.LastEncounterTotalMinutes);
+            Assert.AreEqual(_world.Time.CurrentTime.TotalMinutes, relationship.LastEncounterTotalMinutes);
         }
 
         [Test]
-        public void AcceptHail_WhenAlreadyAtPickupNode_TransitionsImmediatelyToAwaitingBoarding()
+        public void AcceptHail_WhenParkedAtPickupBay_AwaitsVoluntaryBoarding()
         {
-            var network = CreateLinearRoadNetwork(out RoadNode nodeStart, out RoadNode nodePickup, out RoadNode nodeDropoff);
-            var taxi = CreateTaxi(nodePickup.Position, network);
-            var playerState = new PlayerStateService();
-            var passenger = CreatePassenger("res_kael", "Kael", fareMultiplier: 1.0f, tipGenerosity: 0f);
-
-            using var rideService = new RideLifecycleService(network, taxi, playerState);
-
-            Assert.IsTrue(rideService.TryOfferHail(passenger, nodePickup, nodeDropoff));
-            Assert.IsTrue(rideService.AcceptHail());
-
-            Assert.AreEqual(RidePhase.AwaitingBoarding, rideService.CurrentPhase, "Taxi already at pickup node should skip EnRouteToPickup.");
+            var taxi = _world.Taxi();
+            Assert.IsTrue(taxi.NavigateToStop(_world.Pickup));
+            TaxiStopTestFixture.DriveUntilStopped(taxi);
+            using var ride = Service(taxi);
+            Assert.IsTrue(ride.TryOfferHail(_world.Passenger, _world.Pickup, _world.Destination));
+            Assert.IsTrue(ride.AcceptHail());
+            Assert.AreEqual(RidePhase.AwaitingBoarding, ride.CurrentPhase);
+            Assert.IsFalse(taxi.HasActiveRoute);
         }
 
         [Test]
-        public void TryChangeDestination_DuringTransit_UpdatesRouteAndFare()
+        public void AccessNodeProximity_DoesNotPermitBoardingBeforeBayArrival()
         {
-            var network = CreateLinearRoadNetwork(out RoadNode nodeStart, out RoadNode nodePickup, out RoadNode nodeDropoff);
-            var taxi = CreateTaxi(nodePickup.Position, network);
-            var playerState = new PlayerStateService();
-            var passenger = CreatePassenger("res_zora", "Zora", fareMultiplier: 1.0f, tipGenerosity: 0f);
-
-            using var rideService = new RideLifecycleService(network, taxi, playerState);
-
-            Assert.IsTrue(rideService.TryOfferHail(passenger, nodePickup, nodeStart));
-            Assert.IsTrue(rideService.AcceptHail());
-            Assert.IsTrue(rideService.BoardPassenger());
-            Assert.AreEqual(RidePhase.InTransit, rideService.CurrentPhase);
-
-            int originalFare = rideService.ActiveRequest.QuotedBaseFare;
-
-            // Change destination mid-ride to nodeDropoff
-            bool changed = rideService.TryChangeDestination(nodeDropoff);
-            Assert.IsTrue(changed);
-            Assert.AreEqual(nodeDropoff, rideService.ActiveRequest.DestinationNode);
-            Assert.AreEqual(nodeDropoff, taxi.DestinationNode);
-            Assert.Greater(rideService.ActiveRequest.QuotedBaseFare, originalFare);
+            var taxi = _world.Taxi(new Vector2(20f, -1.5f));
+            using var ride = Service(taxi);
+            Assert.IsTrue(ride.TryOfferHail(_world.Passenger, _world.Pickup, _world.Destination));
+            Assert.IsTrue(ride.AcceptHail());
+            Assert.AreEqual(RidePhase.EnRouteToPickup, ride.CurrentPhase);
+            Assert.IsFalse(ride.BoardPassenger(), "A taxi on the through lane has not reached the authored stop pose.");
+            TaxiStopTestFixture.DriveUntilStopped(taxi);
+            Assert.AreEqual(RidePhase.AwaitingBoarding, ride.CurrentPhase);
         }
 
         [Test]
-        public void AcceptHail_PickupProximity_UsesGroundMetresAndLaneOffset()
+        public void TryChangeDestination_DuringTransit_UpdatesStopRouteAndFare()
         {
-            var network = CreateLinearRoadNetwork(out RoadNode nodeStart, out RoadNode nodePickup, out RoadNode nodeDropoff);
-            nodePickup.LaneOffsetMeters = 1.5f;
-
-            Vector2 pickupGround = network.GroundProjection.WorldToGround(nodePickup.Position);
-            Vector2 laneWorld = network.GroundProjection.GroundToWorld(new Vector2(pickupGround.x, pickupGround.y + 1.5f));
-            var taxi = CreateTaxi(new Vector3(laneWorld.x, laneWorld.y, nodePickup.Position.z), network);
-            var passenger = CreatePassenger("res_lane", "Lane", fareMultiplier: 1.0f, tipGenerosity: 0f);
-
-            using var rideService = new RideLifecycleService(network, taxi, new PlayerStateService());
-
-            Assert.IsTrue(rideService.TryOfferHail(passenger, nodePickup, nodeDropoff));
-            Assert.IsTrue(rideService.AcceptHail());
-            Assert.AreEqual(
-                RidePhase.AwaitingBoarding,
-                rideService.CurrentPhase,
-                "A 1.5 m lane-offset stop beside the pickup node must count as at-pickup in ground metres.");
+            var taxi = _world.Taxi();
+            using var ride = StartBoardedRide(taxi);
+            int originalFare = ride.ActiveRequest.QuotedBaseFare;
+            Assert.IsTrue(ride.TryChangeDestination(_world.Alternate));
+            Assert.AreSame(_world.Alternate, ride.ActiveRequest.DestinationStop);
+            Assert.Greater(ride.ActiveRequest.QuotedBaseFare, originalFare);
+            TaxiStopTestFixture.DriveUntilStopped(taxi);
+            Assert.AreEqual(RidePhase.ArrivedAtDestination, ride.CurrentPhase);
+            Assert.AreSame(_world.Alternate, taxi.ParkedStop);
         }
 
-        private static void SimulateUntilStopped(VehicleController taxi, int maxSteps = 200)
+        [Test]
+        public void RetargetDuringDestinationPullIn_DrainsOriginalCurve_WithoutFalseRideArrival()
         {
-            for (int i = 0; i < maxSteps && taxi.HasActiveRoute; i++)
+            var taxi = _world.Taxi();
+            using var ride = StartBoardedRide(taxi);
+            for (int i = 0; i < 10000; i++)
             {
-                taxi.TickMovement(0.05f);
+                taxi.TickMovement(0.02f);
+                if (taxi.IsCurbManeuvering && _world.Ground(taxi).x > 80f) break;
             }
+            Assert.IsTrue(taxi.IsCurbManeuvering);
+            Assert.Greater(_world.Ground(taxi).x, 80f);
+            Assert.IsTrue(ride.TryChangeDestination(_world.Alternate));
+            var updatedRequest = ride.ActiveRequest;
+            int arrivalEvents = 0;
+            ride.OnArrivedAtDestination += request =>
+            {
+                Assert.AreSame(updatedRequest, request);
+                Assert.AreSame(_world.Alternate, request.DestinationStop);
+                arrivalEvents++;
+            };
+            bool drainedOriginalBay = false;
+            for (int i = 0; i < 20000 && (taxi.HasActiveRoute || taxi.HasPendingStopMotion); i++)
+            {
+                taxi.TickMovement(0.02f);
+                Assert.AreSame(updatedRequest, ride.ActiveRequest);
+                if (Vector2.Distance(_world.Ground(taxi), _world.Destination.StopGroundPosition) < 0.001f)
+                {
+                    drainedOriginalBay = true;
+                    Assert.AreEqual(RidePhase.InTransit, ride.CurrentPhase);
+                    Assert.AreEqual(0, arrivalEvents);
+                    Assert.IsFalse(ride.CompleteAndSettleRide());
+                }
+            }
+            Assert.IsTrue(drainedOriginalBay, "Committed pull-in must finish physically before departure toward the new destination.");
+            Assert.AreEqual(1, arrivalEvents);
+            Assert.AreEqual(RidePhase.ArrivedAtDestination, ride.CurrentPhase);
+            Assert.IsTrue(taxi.IsAtStop(_world.Alternate));
         }
 
-        private RoadNetwork CreateLinearRoadNetwork(out RoadNode nodeA, out RoadNode nodeB, out RoadNode nodeC)
+        [Test]
+        public void RejectedDestinationChange_PreservesRequestFareAndOriginalArrival()
         {
-            var gridGo = CreateTrackedObject("IsometricGrid", Vector3.zero);
-            var grid = gridGo.AddComponent<Grid>();
-            grid.cellLayout = GridLayout.CellLayout.IsometricZAsY;
-            grid.cellSize = new Vector3(1f, 0.5f, 1f);
-            grid.cellSwizzle = GridLayout.CellSwizzle.XYZ;
-
-            var networkGo = CreateTrackedObject("RoadNetwork", Vector3.zero);
-            var network = networkGo.AddComponent<RoadNetwork>();
-            network.ConfigureGrid(grid);
-
-            nodeA = CreateNode(networkGo.transform, grid, "NodeA", 0, 0);
-            nodeB = CreateNode(networkGo.transform, grid, "NodeB", 4, 0);
-            nodeC = CreateNode(networkGo.transform, grid, "NodeC", 10, 0);
-
-            nodeA.AddConnection(nodeB);
-            nodeB.AddConnection(nodeA);
-            nodeB.AddConnection(nodeC);
-            nodeC.AddConnection(nodeB);
-
-            network.RebuildNetwork();
-            return network;
+            var taxi = _world.Taxi();
+            using var ride = StartBoardedRide(taxi);
+            var request = ride.ActiveRequest;
+            _world.Alternate.enabled = false;
+            Assert.IsFalse(ride.TryChangeDestination(_world.Alternate));
+            Assert.AreSame(request, ride.ActiveRequest);
+            Assert.IsFalse(ride.TryChangeDestination((TaxiStopAnchor)null));
+            Assert.AreSame(request, ride.ActiveRequest);
+            TaxiStopTestFixture.DriveUntilStopped(taxi);
+            Assert.AreEqual(RidePhase.ArrivedAtDestination, ride.CurrentPhase);
+            Assert.AreSame(_world.Destination, taxi.ParkedStop);
         }
 
-        private GameObject CreateTrackedObject(string name, Vector3 position)
+        [Test]
+        public void OccupiedDestinationBay_RejectsRetargetWithoutReplacingOriginalRequest()
         {
-            var go = new GameObject(name);
-            go.transform.position = position;
-            _spawnedObjects.Add(go);
-            return go;
+            var taxi = _world.Taxi();
+            using var ride = StartBoardedRide(taxi);
+            var request = ride.ActiveRequest;
+            var otherTaxi = new object();
+            Assert.IsTrue(_world.Alternate.TryReserve(otherTaxi));
+            Assert.IsFalse(ride.TryChangeDestination(_world.Alternate));
+            Assert.AreSame(request, ride.ActiveRequest);
+            Assert.AreSame(_world.Destination, ride.ActiveRequest.DestinationStop);
+            TaxiStopTestFixture.DriveUntilStopped(taxi);
+            Assert.AreEqual(RidePhase.ArrivedAtDestination, ride.CurrentPhase);
+            Assert.AreSame(_world.Destination, taxi.ParkedStop);
+            _world.Alternate.Release(otherTaxi);
         }
 
-        private RoadNode CreateNode(Transform parent, Grid grid, string name, int cellX, int cellY)
+        [Test]
+        public void DisabledHistoricalPickup_AfterPhysicalDeparture_DoesNotInvalidateFareOrSettlement()
         {
-            var go = CreateTrackedObject(name, grid.CellToWorld(new Vector3Int(cellX, cellY, 0)));
-            go.transform.SetParent(parent);
-            return go.AddComponent<RoadNode>();
+            var taxi = _world.Taxi();
+            var player = new PlayerStateService();
+            using var ride = StartBoardedRide(taxi, player);
+            var request = ride.ActiveRequest;
+            float quotedDistance = request.PlannedDistance;
+            int quotedFare = request.QuotedBaseFare;
+            int creditsBefore = player.Credits;
+            for (int i = 0; i < 5000; i++)
+            {
+                taxi.TickMovement(0.02f);
+                if (!taxi.IsCurbManeuvering && _world.Ground(taxi).x > 40.001f) break;
+            }
+            Assert.IsFalse(taxi.IsCurbManeuvering);
+            Assert.Greater(_world.Ground(taxi).x, 40.001f);
+            Assert.IsTrue(_world.Pickup.IsAvailableFor(new object()), "The taxi must physically leave the historical pickup first.");
+            _world.Pickup.enabled = false;
+            TaxiStopTestFixture.DriveUntilStopped(taxi);
+            Assert.AreEqual(RidePhase.ArrivedAtDestination, ride.CurrentPhase);
+            Assert.IsTrue(taxi.IsAtStop(_world.Destination));
+            Assert.AreSame(request, ride.ActiveRequest);
+            Assert.AreEqual(quotedDistance, ride.ActiveRequest.PlannedDistance);
+            Assert.AreEqual(quotedFare, ride.ActiveRequest.QuotedBaseFare);
+            RideSettlementResult? settlement = null;
+            ride.OnRideCompleted += result => settlement = result;
+            Assert.IsTrue(ride.CompleteAndSettleRide());
+            Assert.IsTrue(settlement.HasValue);
+            Assert.AreEqual(quotedFare, settlement.Value.BaseFarePaid);
+            int expectedTip = Mathf.RoundToInt(quotedFare * _world.Passenger.TipGenerosity);
+            Assert.AreEqual(expectedTip, settlement.Value.TipPaid);
+            Assert.AreEqual(creditsBefore + quotedFare + expectedTip, player.Credits);
+            Assert.AreEqual(RidePhase.Idle, ride.CurrentPhase);
         }
 
-        private VehicleController CreateTaxi(Vector3 position, RoadNetwork network)
+        [Test]
+        public void PickupDisabledWhileAwaitingBoarding_RejectsBoardingAndCancelsLogicalRide()
         {
-            var go = CreateTrackedObject("PlayerTaxi", position);
-            var controller = go.AddComponent<VehicleController>();
-            controller.Construct(network);
-            VehicleController.RegisterActiveVehicle(controller);
-            return controller;
+            var taxi = _world.Taxi();
+            var player = new PlayerStateService();
+            using var ride = Service(taxi, player);
+            Assert.IsTrue(ride.TryOfferHail(_world.Passenger, _world.Pickup, _world.Destination));
+            Assert.IsTrue(ride.AcceptHail());
+            TaxiStopTestFixture.DriveUntilStopped(taxi);
+            Assert.AreEqual(RidePhase.AwaitingBoarding, ride.CurrentPhase);
+            var request = ride.ActiveRequest;
+            int cancellations = 0;
+            int boardings = 0;
+            ride.OnRideCancelled += cancelled => { Assert.AreSame(request, cancelled); cancellations++; };
+            ride.OnPassengerBoarded += _ => boardings++;
+            int creditsBefore = player.Credits;
+            Vector2 parkedPosition = _world.Ground(taxi);
+            _world.Pickup.enabled = false;
+
+            Assert.IsFalse(ride.BoardPassenger());
+            Assert.AreEqual(RidePhase.Idle, ride.CurrentPhase, "Invalid pickup authoring must release the logical ride for recovery.");
+            Assert.IsNull(ride.ActiveRequest);
+            Assert.AreEqual(1, cancellations);
+            Assert.AreEqual(0, boardings);
+            Assert.AreEqual(creditsBefore, player.Credits);
+            Assert.Less(Vector2.Distance(parkedPosition, _world.Ground(taxi)), 0.001f);
         }
 
-        private PassengerDefinitionSO CreatePassenger(string id, string name, float fareMultiplier, float tipGenerosity)
+        [Test]
+        public void NodeOverload_RequiresRegistryResolution_AndFailsClosedWithoutIt()
         {
-            var so = ScriptableObject.CreateInstance<PassengerDefinitionSO>();
-            so.Initialize(id, name, "Vesperian", "Common", fareMultiplier, tipGenerosity);
-            _spawnedObjects.Add(so);
-            return so;
+            var taxi = _world.Taxi();
+            using var noRegistry = new RideLifecycleService(_world.Network, taxi, new PlayerStateService());
+            Assert.IsFalse(noRegistry.TryOfferHail(_world.Passenger, _world.Pickup.ApproachNode, _world.Destination.ApproachNode));
+            Assert.AreEqual(RidePhase.Idle, noRegistry.CurrentPhase);
+            using var resolved = Service(taxi);
+            Assert.IsTrue(resolved.TryOfferHail(_world.Passenger, _world.Pickup.ApproachNode, _world.Destination.ApproachNode));
+            Assert.AreSame(_world.Pickup, resolved.ActiveRequest.PickupStop);
+            Assert.AreSame(_world.Destination, resolved.ActiveRequest.DestinationStop);
         }
 
-        private DistrictConfigSO CreateDistrict(string id, int baseFare, float perUnit)
+        private RideLifecycleService StartBoardedRide(VehicleController taxi, PlayerStateService player = null)
         {
-            var so = ScriptableObject.CreateInstance<DistrictConfigSO>();
-            so.Initialize(id, id, targetAmbientVehicles: 4, basePickupFare: baseFare, creditsPerUnitDistance: perUnit);
-            _spawnedObjects.Add(so);
-            return so;
+            var ride = Service(taxi, player);
+            Assert.IsTrue(ride.TryOfferHail(_world.Passenger, _world.Pickup, _world.Destination));
+            Assert.IsTrue(ride.AcceptHail());
+            TaxiStopTestFixture.DriveUntilStopped(taxi);
+            Assert.IsTrue(ride.BoardPassenger());
+            return ride;
         }
+
+        private RideLifecycleService Service(VehicleController taxi, PlayerStateService player = null) =>
+            new RideLifecycleService(_world.Network, taxi, player ?? new PlayerStateService(), _world.Time, _world.Registry);
     }
 }

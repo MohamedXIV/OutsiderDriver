@@ -151,12 +151,26 @@ namespace OutsiderDriver.Navigation
             _connectedNodes.Remove(target);
         }
 
+        private void Awake()
+        {
+            ClearReservation();
+        }
+
+        private void OnDestroy()
+        {
+            ClearReservation();
+        }
+
         /// <summary>
         /// Returns true if the node can be entered by the requesting vehicle according to right-of-way rules.
         /// </summary>
         public bool CanVehicleEnter(object vehicle)
         {
             if (vehicle == null) return false;
+            if (_occupyingVehicle is UnityEngine.Object uo && uo == null)
+            {
+                _occupyingVehicle = null;
+            }
             return _occupyingVehicle == null || ReferenceEquals(_occupyingVehicle, vehicle);
         }
 
@@ -168,6 +182,10 @@ namespace OutsiderDriver.Navigation
         public bool TryReserveIntersection(object vehicle)
         {
             if (vehicle == null) return false;
+            if (_occupyingVehicle is UnityEngine.Object uo && uo == null)
+            {
+                _occupyingVehicle = null;
+            }
 
             if (_occupyingVehicle == null || ReferenceEquals(_occupyingVehicle, vehicle))
             {
@@ -183,7 +201,7 @@ namespace OutsiderDriver.Navigation
         /// </summary>
         public void ReleaseIntersection(object vehicle)
         {
-            if (ReferenceEquals(_occupyingVehicle, vehicle))
+            if (ReferenceEquals(_occupyingVehicle, vehicle) || (_occupyingVehicle is UnityEngine.Object uo && uo == null))
             {
                 _occupyingVehicle = null;
             }

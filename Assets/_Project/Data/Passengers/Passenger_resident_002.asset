@@ -27,4 +27,4 @@ MonoBehaviour:
   - StartHour: 10
     EndHour: 22
     DistrictId: district_02
-    PreferredNodeId: node_d02_market_junction
+    PreferredNodeId: node_market_approach

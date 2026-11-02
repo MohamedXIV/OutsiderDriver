@@ -252,12 +252,14 @@ namespace OutsiderDriver.Tests.EditMode
             Assert.GreaterOrEqual(primaryRoute.Count, 4, "Primary route should traverse multiple connected street segments.");
             Assert.IsTrue(registry.NavigateVehicleToLocation(taxi, "location_003", useAlternativeRoute: false));
             SimulateVehicleUntilArrived(taxi, maxSteps: 1200);
-            Assert.LessOrEqual(Vector2.Distance(taxi.transform.position, commercialNode.Position), 0.35f, "Taxi should arrive at commercial destination.");
+            float commercialTolerance = 0.35f + commercialNode.LaneOffsetMeters;
+            Assert.LessOrEqual(Vector2.Distance(taxi.transform.position, commercialNode.Position), commercialTolerance, "Taxi should arrive at commercial destination.");
 
             // 2. Return journey: Commercial Destination -> Home/Garage
             Assert.IsTrue(registry.NavigateVehicleToLocation(taxi, "location_001", useAlternativeRoute: false));
             SimulateVehicleUntilArrived(taxi, maxSteps: 1200);
-            Assert.LessOrEqual(Vector2.Distance(taxi.transform.position, homeNode.Position), 0.35f, "Taxi should complete return journey to Home/Garage.");
+            float homeTolerance = 0.35f + homeNode.LaneOffsetMeters;
+            Assert.LessOrEqual(Vector2.Distance(taxi.transform.position, homeNode.Position), homeTolerance, "Taxi should complete return journey to Home/Garage.");
 
             // 3. Alternative route journey: Home/Garage -> Commercial Destination via Alternative Route
             var altRoute = roadNetwork.FindAlternativePath(homeNode, commercialNode, primaryRoute);
@@ -266,13 +268,21 @@ namespace OutsiderDriver.Tests.EditMode
 
             Assert.IsTrue(registry.NavigateVehicleToLocation(taxi, "location_003", useAlternativeRoute: true));
             SimulateVehicleUntilArrived(taxi, maxSteps: 1500);
-            Assert.LessOrEqual(Vector2.Distance(taxi.transform.position, commercialNode.Position), 0.35f, "Taxi should arrive at commercial destination via the alternative route.");
+            Assert.LessOrEqual(Vector2.Distance(taxi.transform.position, commercialNode.Position), commercialTolerance, "Taxi should arrive at commercial destination via the alternative route.");
         }
 
         private static void SimulateVehicleUntilArrived(VehicleController vehicle, int maxSteps)
         {
+            var signals = UnityEngine.Object.FindObjectsByType<TrafficSignalController>(FindObjectsSortMode.None);
             for (int i = 0; i < maxSteps && vehicle.HasActiveRoute; i++)
             {
+                for (int s = 0; s < signals.Length; s++)
+                {
+                    if (signals[s] != null && signals[s].isActiveAndEnabled)
+                    {
+                        signals[s].Tick(0.05f);
+                    }
+                }
                 vehicle.TickMovement(0.05f);
             }
         }

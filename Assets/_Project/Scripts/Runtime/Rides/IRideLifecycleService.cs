@@ -1,6 +1,7 @@
 using System;
 using OutsiderDriver.Data;
 using OutsiderDriver.Navigation;
+using OutsiderDriver.World;
 
 namespace OutsiderDriver.Rides
 {
@@ -26,24 +27,28 @@ namespace OutsiderDriver.Rides
         event Action<RideRequest> OnRideCancelled;
 
         /// <summary>
-        /// Offers a new passenger ride hail between the specified pickup and destination nodes.
-        /// Fails if a ride is already active or nodes are invalid.
+        /// Compatibility entry point resolving nodes to explicit stops in the injected world registry.
+        /// Fails if either node has no unique valid authored curb stop.
         /// </summary>
         bool TryOfferHail(PassengerDefinitionSO passenger, RoadNode pickupNode, RoadNode destinationNode, DistrictConfigSO district = null);
 
         /// <summary>
-        /// Declines the currently offered hail and returns to Idle.
+        /// Offers a ride between explicit authored curb stops. Implementations without stop
+        /// navigation fail closed; callers must not fall back to arbitrary road nodes.
         /// </summary>
+        bool TryOfferHail(PassengerDefinitionSO passenger, TaxiStopAnchor pickupStop, TaxiStopAnchor destinationStop, DistrictConfigSO district = null) => false;
+
+        /// <summary>Declines the currently offered hail and returns to Idle.</summary>
         bool DeclineHail();
 
         /// <summary>
-        /// Accepts the currently offered hail and routes the taxi to the pickup node
-        /// (or transitions directly to AwaitingBoarding if already at the pickup node).
+        /// Accepts the currently offered hail and routes the taxi to its pickup bay.
+        /// AwaitingBoarding requires the taxi to be physically parked at that stop.
         /// </summary>
         bool AcceptHail();
 
         /// <summary>
-        /// Boards the waiting passenger at the pickup node and begins routing to the destination.
+        /// Boards the waiting passenger at the pickup stop and begins routing to the destination bay.
         /// </summary>
         bool BoardPassenger();
 
@@ -51,6 +56,8 @@ namespace OutsiderDriver.Rides
         /// Allows a mid-ride destination change when roads connect to the new target (GAME_DESIGN §3.A).
         /// </summary>
         bool TryChangeDestination(RoadNode newDestinationNode);
+
+        bool TryChangeDestination(TaxiStopAnchor newDestinationStop) => false;
 
         /// <summary>
         /// Completes the ride at the destination, settles base fare + tip into PlayerStateService,

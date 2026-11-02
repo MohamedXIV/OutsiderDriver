@@ -4,6 +4,7 @@ using UnityEngine;
 using VContainer;
 using OutsiderDriver.Data;
 using OutsiderDriver.Navigation;
+using OutsiderDriver.World;
 
 namespace OutsiderDriver.Vehicles
 {
@@ -14,7 +15,7 @@ namespace OutsiderDriver.Vehicles
     /// </summary>
     [SelectionBase]
     [DisallowMultipleComponent]
-    public class VehicleController : MonoBehaviour
+    public partial class VehicleController : MonoBehaviour
     {
         private const float UncontrolledIntersectionTieMeters = 0.5f;
         private static readonly List<VehicleController> ActiveVehicles = new List<VehicleController>();
@@ -33,8 +34,6 @@ namespace OutsiderDriver.Vehicles
         [Header("Traffic Sensors & Yielding (metres)")]
         [Tooltip("Forward distance to check for another vehicle ahead in the same lane.")]
         [SerializeField] private float _forwardSensorDistance = 9f;
-        [Tooltip("Directional cone angle (degrees) for detecting vehicles directly ahead.")]
-        [SerializeField] private float _forwardSensorAngle = 35f;
         [Tooltip("Half-width of the forward sensor corridor. Vehicles in adjacent lanes are ignored.")]
         [SerializeField] private float _forwardSensorHalfWidth = 1.8f;
         [Tooltip("Distance from a YieldIntersection node at which the vehicle checks right-of-way.")]
@@ -42,6 +41,20 @@ namespace OutsiderDriver.Vehicles
 
         [Header("Visuals")]
         [SerializeField] private Transform _visualsRoot;
+        [Tooltip("Opt in only for a separately authored rotatable visual child; four-direction sprite rigs can keep using OnFacingChanged.")]
+        [SerializeField] private bool _rotateVisualsWithHeading;
+        private Vector2 _visualGroundDirection = Vector2.right;
+        public Vector2 VisualGroundDirection => _visualGroundDirection;
+        private RoadTurnPath _turnPath;
+        private int _turnSelectionIndex = -1;
+        private bool _turnUnavailable;
+        private bool _turnTraversing;
+        private float _turnDistance;
+        private RoadNode _initialIncomingNode;
+        private List<RoadNode> _pendingPath;
+        private bool _cancelAfterTurn;
+        private float LateralAcceleration => _carModel != null ? _carModel.MaximumLateralAcceleration : 2.5f;
+        private float HeadingRate => _carModel != null ? _carModel.VisualHeadingDegreesPerSecond : 180f;
 
         private readonly List<RoadNode> _activePath = new List<RoadNode>();
         private int _currentPathIndex = 0;
@@ -51,7 +64,12 @@ namespace OutsiderDriver.Vehicles
         private Vector3 _forwardDirection = new Vector3(1f, 0.5f, 0f).normalized;
         private Vector2 _forwardGroundDirection = Vector2.right;
         private IsometricDirection _currentFacing = IsometricDirection.NorthEast;
+        public float LengthMeters => _carModel != null ? _carModel.LengthMeters : 4.5f;
+        private float MinimumGap => _carModel != null ? _carModel.MinimumGapMeters : 2f;
+        private float TimeHeadway => _carModel != null ? _carModel.TimeHeadwaySeconds : 1.2f;
+        private float _idleElevation;
         private RoadNode _reservedNode;
+        private bool _junctionCommitted;
         private int _laneMergePathIndex = -1;
         private bool _laneMergeComplete;
 
@@ -66,6 +84,7 @@ namespace OutsiderDriver.Vehicles
         public static void ClearActiveVehicles() => ActiveVehicles.Clear();
 
         public CarModelSO CarModel => _carModel;
+        public RoadNode ReservedNode => _reservedNode;
         public float CurrentSpeed => _currentSpeed;
         public float MaxSpeed
         {
@@ -104,10 +123,12 @@ namespace OutsiderDriver.Vehicles
         }
         public bool IsMoving => _currentSpeed > 0.05f;
         public bool IsYielding => _isYielding;
-        public bool HasActiveRoute => _activePath.Count > 0 && _currentPathIndex < _activePath.Count;
+        private bool HasGraphRoute => _activePath.Count > 0 && _currentPathIndex < _activePath.Count;
+        public bool HasActiveRoute => HasGraphRoute || IsCurbManeuvering || _curbContinuationPath != null;
         public IReadOnlyList<RoadNode> ActivePath => _activePath;
-        public RoadNode CurrentTargetNode => HasActiveRoute ? _activePath[_currentPathIndex] : null;
-        public RoadNode DestinationNode => _activePath.Count > 0 ? _activePath[_activePath.Count - 1] : null;
+        public RoadNode CurrentTargetNode => HasGraphRoute ? _activePath[_currentPathIndex] : null;
+        public RoadNode DestinationNode => _targetStop != null ? _targetStop.ApproachNode
+            : (_activePath.Count > 0 ? _activePath[_activePath.Count - 1] : null);
         public Vector3 ForwardDirection => _forwardDirection;
         public Vector2 ForwardGroundDirection => _forwardGroundDirection;
         public IsometricDirection CurrentFacing => _currentFacing;
@@ -124,6 +145,7 @@ namespace OutsiderDriver.Vehicles
             {
                 _roadNetwork = roadNetwork;
             }
+            RegisterActiveVehicle(this);
         }
 
         /// <summary>
@@ -164,6 +186,14 @@ namespace OutsiderDriver.Vehicles
         private void OnDisable()
         {
             ReleaseReservedNode();
+            ClearCurbState();
+            ActiveVehicles.Remove(this);
+        }
+
+        private void OnDestroy()
+        {
+            ReleaseReservedNode();
+            ClearCurbState();
             ActiveVehicles.Remove(this);
         }
 
@@ -186,7 +216,11 @@ namespace OutsiderDriver.Vehicles
         /// </summary>
         public void TickMovement(float deltaTime)
         {
-            if (_isPaused || !HasActiveRoute)
+            if (deltaTime <= 0f) return;
+            UpdateReservationClearance();
+            if (TickCurbMotion(deltaTime)) return;
+
+            if (_isPaused || !HasGraphRoute)
             {
                 _isYielding = false;
                 ApplyDeceleration(deltaTime);
@@ -202,6 +236,12 @@ namespace OutsiderDriver.Vehicles
         public bool NavigateTo(RoadNode destination)
         {
             if (destination == null) return false;
+            if (IsCurbManeuvering || _curbMotion == CurbMotion.Parked)
+                return QueueGraphDeparture(destination, false, false);
+            if (_turnTraversing)
+            {
+                return QueueRouteAfterTurn(destination, false, false);
+            }
 
             if (_roadNetwork == null)
             {
@@ -237,6 +277,12 @@ namespace OutsiderDriver.Vehicles
         public bool NavigateToAlternative(RoadNode destination, bool allowFallbackToPrimary = false)
         {
             if (destination == null) return false;
+            if (IsCurbManeuvering || _curbMotion == CurbMotion.Parked)
+                return QueueGraphDeparture(destination, true, allowFallbackToPrimary);
+            if (_turnTraversing)
+            {
+                return QueueRouteAfterTurn(destination, true, allowFallbackToPrimary);
+            }
 
             if (_roadNetwork == null)
             {
@@ -261,12 +307,14 @@ namespace OutsiderDriver.Vehicles
         /// </summary>
         public bool NavigateAlongPath(IReadOnlyList<RoadNode> path)
         {
-            if (path == null || path.Count == 0)
+            if (path == null || path.Count == 0 || _turnTraversing || IsCurbManeuvering || _curbMotion == CurbMotion.Parked)
             {
-                return false;
+                return false; // direct path replacement cannot interrupt an authored crossing
             }
+            RoadNode initialIncoming = path[0] == CurrentTargetNode ? IncomingNode : null;
 
-            ReleaseReservedNode();
+            // A route change/cancellation is not physical clearance of a junction.
+            if (!_junctionCommitted) ReleaseReservedNode();
             _activePath.Clear();
             for (int i = 0; i < path.Count; i++)
             {
@@ -281,11 +329,19 @@ namespace OutsiderDriver.Vehicles
                 return false;
             }
 
+            if (!_installingStopRoute) AbandonStopGoal();
             _currentPathIndex = 0;
+            _initialIncomingNode = initialIncoming;
+            _pendingPath = null;
+            _cancelAfterTurn = false;
             _isPaused = false;
             _isYielding = false;
             _laneMergePathIndex = -1;
             _laneMergeComplete = false;
+            _turnSelectionIndex = -1;
+            _turnPath = null;
+            _turnTraversing = false;
+            _turnUnavailable = false;
 
             OnRouteChanged?.Invoke(_activePath);
             return true;
@@ -303,12 +359,37 @@ namespace OutsiderDriver.Vehicles
 
         public void CancelRoute()
         {
-            ReleaseReservedNode();
+            // Logical ride cancellation cannot strand a body in a turn, pull-in or through lane.
+            // Stop-directed movement drains to its already validated bay; late events are identified by stop.
+            if (_targetStop != null || IsCurbManeuvering || _curbContinuationPath != null)
+            {
+                _isPaused = false;
+                return;
+            }
+            if (_turnTraversing)
+            {
+                // Cancellation drains the currently occupied authored movement to its safe exit.
+                // A later valid NavigateTo can supersede this request without losing geometry.
+                _cancelAfterTurn = true;
+                _pendingPath = null;
+                _isPaused = false;
+                return;
+            }
+            _idleElevation = TrafficElevation;
+            // A route change/cancellation is not physical clearance of a junction.
+            if (!_junctionCommitted) ReleaseReservedNode();
             _activePath.Clear();
             _currentPathIndex = 0;
+            _initialIncomingNode = null;
+            _pendingPath = null;
+            _cancelAfterTurn = false;
             _isYielding = false;
             _laneMergePathIndex = -1;
             _laneMergeComplete = false;
+            _turnSelectionIndex = -1;
+            _turnPath = null;
+            _turnTraversing = false;
+            _turnUnavailable = false;
             OnRouteChanged?.Invoke(_activePath);
         }
 
@@ -322,107 +403,226 @@ namespace OutsiderDriver.Vehicles
         /// </summary>
         public bool ShouldYield(RoadNode upcomingNode, Vector2 travelGroundDirection, float distanceToNode)
         {
-            bool approachingIntersection = upcomingNode != null && distanceToNode <= _intersectionYieldDistance;
+            GetFollowingLimit(travelGroundDirection,
+                distanceToNode <= _intersectionYieldDistance ? upcomingNode : null,
+                out float followingSpeed, out _);
+            return EvaluateYield(upcomingNode, distanceToNode, followingSpeed);
+        }
 
-            // 1. Check intersection right-of-way before the forward sensor. Once this vehicle wins
-            // the uncontrolled-intersection tie-break, a stationary crossing car waiting at the
-            // same node must not read as an in-lane obstacle, or both cars deadlock forever.
-            if (approachingIntersection)
-            {
-                if (upcomingNode.Priority == RoadNodePriority.YieldIntersection)
-                {
-                    // Must yield if another vehicle has reserved the intersection or is crossing on a main artery
-                    if (!upcomingNode.CanVehicleEnter(this) || IsCrossTrafficApproaching(upcomingNode))
-                    {
-                        return true;
-                    }
-                }
-                else if (upcomingNode.IsIntersection && !upcomingNode.CanVehicleEnter(this))
-                {
-                    // Even on a main artery, do not drive through a node actively occupied by another vehicle
-                    return true;
-                }
-            }
+        private bool EvaluateYield(RoadNode upcomingNode, float distanceToNode, float followingSpeed)
+        {
+            if (upcomingNode == null || !IsConflictNode(upcomingNode))
+                return followingSpeed < _maxSpeed - 0.01f;
 
-            // 2. Check forward vehicle spacing sensor before reserving the intersection so a car
-            // blocked behind an in-lane obstacle does not claim and hold the junction while stopped.
-            if (IsVehicleBlockingAhead(
-                travelGroundDirection,
-                approachingIntersection ? upcomingNode : null))
+            // Commitment is physical occupancy, not a speed or waypoint event. A committed
+            // owner can slow/stop in the junction without granting perpendicular clearance.
+            if (_reservedNode == upcomingNode && _junctionCommitted)
+                return followingSpeed < _maxSpeed - 0.01f;
+            if (_reservedNode != null && _junctionCommitted)
+                return true; // retain the previous conflict until the rear has cleared it
+
+            if (!SignalAllowsEntry(upcomingNode))
             {
+                if (!_junctionCommitted) ReleaseReservedNode();
                 return true;
             }
+            float entryRadius = upcomingNode.IntersectionClearanceRadius + LengthMeters * 0.5f;
+            float reserveDistance = Mathf.Max(_intersectionYieldDistance, entryRadius + MinimumGap);
+            if (_turnPath != null && _turnPath.Junction == upcomingNode)
+                reserveDistance = Mathf.Max(reserveDistance,
+                    (_turnPath.PositionAtDistance(0) - GroundProjection.WorldToGround(upcomingNode.Position)).magnitude + 0.1f);
+            if (distanceToNode > reserveDistance) return followingSpeed < _maxSpeed - 0.01f;
 
-            // 3. Reserve the intersection once within clearance radius, clear of forward obstacles,
-            // and allowed to enter.
-            if (approachingIntersection && distanceToNode <= upcomingNode.IntersectionClearanceRadius)
+            if (!upcomingNode.CanVehicleEnter(this)
+                || (upcomingNode.Priority == RoadNodePriority.YieldIntersection
+                    && TrafficSignalController.Find(upcomingNode) == null
+                    && TrafficSignalApproach.Find(upcomingNode, IncomingNode) == null
+                    && IsCrossTrafficApproaching(upcomingNode)))
+                return true;
+
+            if (followingSpeed < _maxSpeed - 0.01f)
             {
-                if (_reservedNode != upcomingNode)
+                // Only uncommitted blocked approaches may surrender a speculative reservation.
+                if (!_junctionCommitted) ReleaseReservedNode();
+                return true;
+            }
+            if (_reservedNode != upcomingNode)
+            {
+                ReleaseReservedNode();
+                if (!upcomingNode.TryReserveIntersection(this)) return true;
+                _reservedNode = upcomingNode;
+            }
+            if (distanceToNode <= entryRadius)
+            {
+                var approach = TrafficSignalApproach.Find(upcomingNode, IncomingNode);
+                if (approach != null && ValidStopLine(approach, out Vector2 line, out Vector2 direction))
                 {
-                    ReleaseReservedNode();
-                    if (upcomingNode.TryReserveIntersection(this))
-                    {
-                        _reservedNode = upcomingNode;
-                    }
-                    else
-                    {
-                        return true;
-                    }
+                    float distToLine = Vector2.Dot(line - GroundProjection.WorldToGround(transform.position), direction)
+                        - LengthMeters * 0.5f;
+                    if (distToLine <= 0.05f) _junctionCommitted = true;
+                }
+                else
+                {
+                    _junctionCommitted = true;
                 }
             }
-
             return false;
         }
 
-        private bool IsVehicleBlockingAhead(Vector2 travelGroundDirection, RoadNode priorityIntersection = null)
+        private void UpdateReservationClearance()
         {
-            if (travelGroundDirection.sqrMagnitude < 0.0001f) return false;
+            if (_reservedNode == null || !_junctionCommitted) return;
+            // Drain the whole authored movement before a phase change can withdraw entry
+            // permission; its exit is validated to be beyond the rear-clear boundary.
+            if (_turnTraversing && _turnPath != null && _turnPath.Junction == _reservedNode) return;
+            float distance = (GroundProjection.WorldToGround(transform.position)
+                - GroundProjection.WorldToGround(_reservedNode.Position)).magnitude;
+            if (distance > _reservedNode.IntersectionClearanceRadius + LengthMeters * 0.5f)
+                ReleaseReservedNode();
+        }
 
+        private float TrafficElevation
+        {
+            get
+            {
+                if (_maneuverStop != null) return _maneuverStop.ElevationLevel;
+                if (_parkedStop != null) return _parkedStop.ElevationLevel;
+                var target = CurrentTargetNode;
+                if (target == null) return _idleElevation;
+                if (IncomingNode == null) return target.ElevationLevel;
+                var previous = IncomingNode;
+                var projection = GroundProjection;
+                Vector2 start = projection.WorldToGround(previous.Position);
+                Vector2 segment = projection.WorldToGround(target.Position) - start;
+                float progress = segment.sqrMagnitude > 0.0001f
+                    ? Vector2.Dot(projection.WorldToGround(transform.position) - start, segment) / segment.sqrMagnitude : 1f;
+                return Mathf.Lerp(previous.ElevationLevel, target.ElevationLevel, Mathf.Clamp01(progress));
+            }
+        }
+
+        private void GetFollowingLimit(Vector2 travelDirection, RoadNode priorityIntersection,
+            out float speedLimit, out float clearTravel)
+        {
+            speedLimit = _maxSpeed;
+            clearTravel = float.PositiveInfinity;
+            if (travelDirection.sqrMagnitude < 0.0001f) return;
             var projection = GroundProjection;
-            Vector2 direction = travelGroundDirection.normalized;
-            Vector2 right = new Vector2(direction.y, -direction.x);
-            Vector2 myGroundPosition = projection.WorldToGround(transform.position);
-            float maxDistSqr = _forwardSensorDistance * _forwardSensorDistance;
-            float minCosAngle = Mathf.Cos(_forwardSensorAngle * Mathf.Deg2Rad);
+            Vector2 origin = projection.WorldToGround(transform.position);
+            // Existing sensor setting is a minimum, never shorter than the stopping horizon.
+            float horizon = Mathf.Max(_forwardSensorDistance,
+                LengthMeters + MinimumGap + _currentSpeed * TimeHeadway
+                + _currentSpeed * _currentSpeed / (2f * Mathf.Max(0.1f, _deceleration)));
+            RoadNode upcomingConflict = priorityIntersection != null ? priorityIntersection
+                : (_reservedNode != null ? _reservedNode : (IsConflictNode(CurrentTargetNode) ? CurrentTargetNode : null));
+            if (upcomingConflict != null)
+            {
+                float toConflict = (projection.WorldToGround(upcomingConflict.Position) - origin).magnitude;
+                horizon = Mathf.Max(horizon, toConflict + upcomingConflict.IntersectionClearanceRadius + LengthMeters + MinimumGap);
+            }
 
             for (int i = 0; i < ActiveVehicles.Count; i++)
             {
                 var other = ActiveVehicles[i];
-                if (other == null || ReferenceEquals(other, this)) continue;
+                if (other == null || other == this || !other.isActiveAndEnabled) continue;
+                if (other._roadNetwork != _roadNetwork) continue;
+                Vector2 otherGround = projection.WorldToGround(other.transform.position);
+                if ((otherGround - origin).sqrMagnitude > horizon * horizon) continue;
 
-                // Ignore oncoming vehicles traveling in the opposite lane so bidirectional streets never deadlock head-on
-                if (other.HasActiveRoute && Vector2.Dot(direction, other._forwardGroundDirection) < -0.25f)
+                // Preserve 3029c2d: crossing waiters cannot block the tie-break winner.
+                if (priorityIntersection != null && other.CurrentTargetNode == priorityIntersection
+                    && other._currentSpeed < 0.1f
+                    && Mathf.Abs(Vector2.Dot(travelDirection, other._forwardGroundDirection)) < 0.5f) continue;
+
+                Vector2 segmentStart = origin;
+                float travelled = 0f;
+                if (_turnPath != null && _turnPath.IsValid
+                    && _turnPath.TryProject(otherGround, out float arc, out float curveLateral))
                 {
-                    continue;
+                    float cursor = _turnTraversing ? _turnDistance : 0f;
+                    float approach = _turnTraversing ? 0f : (origin - _turnPath.PositionAtDistance(0)).magnitude;
+                    float alongCurve = approach + arc - cursor;
+                    bool aligned = !other.HasActiveRoute || other.IsCurbManeuvering || Vector2.Dot(_turnPath.TangentAtDistance(arc), other._forwardGroundDirection) > 0.5f;
+                    if (alongCurve > 0f && alongCurve <= horizon && Mathf.Abs(curveLateral) <= BodySensorHalfWidth(_turnPath.TangentAtDistance(arc), other)
+                        && aligned && Mathf.Abs(other.TrafficElevation - TrafficElevation) < 0.5f)
+                    {
+                        float gap = alongCurve - (LengthMeters + other.LengthMeters) * 0.5f;
+                        float leadSpeed = other._isPaused || !other.HasActiveRoute ? 0f : other._currentSpeed;
+                        speedLimit = Mathf.Min(speedLimit, CarFollowing.TargetSpeed(_maxSpeed, gap,
+                            leadSpeed, other.Deceleration, _deceleration, MinimumGap, TimeHeadway));
+                        clearTravel = Mathf.Min(clearTravel, Mathf.Max(0f, gap - MinimumGap));
+                        continue;
+                    }
                 }
-
-                // At the same uncontrolled intersection, a stationary crossing car that already
-                // yielded to this vehicle is not an in-lane obstacle; right-of-way decides the crossing.
-                if (priorityIntersection != null
-                    && other.CurrentTargetNode == priorityIntersection
-                    && Mathf.Abs(other._currentSpeed) < 0.1f
-                    && Mathf.Abs(Vector2.Dot(direction, other._forwardGroundDirection)) < 0.5f)
+                // Follow the existing lane polyline around corners, bounded by the sensor horizon.
+                for (int index = _currentPathIndex; index < _activePath.Count && travelled < horizon; index++)
                 {
-                    continue;
-                }
-
-                Vector2 toOther = projection.WorldToGround(other.transform.position) - myGroundPosition;
-                float distSqr = toOther.sqrMagnitude;
-
-                if (distSqr <= 0.0001f || distSqr > maxDistSqr) continue;
-
-                // Only vehicles inside this lane's corridor block the path; adjacent lanes do not.
-                if (Mathf.Abs(Vector2.Dot(right, toOther)) > _forwardSensorHalfWidth) continue;
-
-                float distance = Mathf.Sqrt(distSqr);
-                float dot = Vector2.Dot(direction, toOther) / distance;
-                if (dot >= minCosAngle)
-                {
-                    return true;
+                    var node = _activePath[index];
+                    if (index == _currentPathIndex && _turnPath != null && _turnTraversing)
+                    {
+                        travelled = _turnPath.Length - _turnDistance;
+                        segmentStart = _turnPath.PositionAtDistance(_turnPath.Length);
+                        continue;
+                    }
+                    Vector2 end = projection.WorldToGround(node.Position);
+                    Vector2 tangent = index > 0
+                        ? end - projection.WorldToGround(_activePath[index - 1].Position)
+                        : (_initialIncomingNode != null ? end - projection.WorldToGround(_initialIncomingNode.Position) : travelDirection);
+                    if (tangent.sqrMagnitude < 0.0001f) continue;
+                    tangent.Normalize();
+                    Vector2 laneOffset = new Vector2(tangent.y, -tangent.x) * node.LaneOffsetMeters;
+                    end += laneOffset;
+                    if (index == _currentPathIndex && _turnPath != null)
+                        end = _turnPath.PositionAtDistance(0);
+                    if (index > _currentPathIndex && !(_turnPath != null && index == _currentPathIndex + 1))
+                    {
+                        // Use the outgoing lane line, not a diagonal chord between two
+                        // lane endpoints (which can sweep through the opposing lane).
+                        Vector2 laneStart = projection.WorldToGround(_activePath[index - 1].Position) + laneOffset;
+                        travelled += (laneStart - segmentStart).magnitude;
+                        segmentStart = laneStart;
+                    }
+                    Vector2 segment = end - segmentStart;
+                    float length = segment.magnitude;
+                    if (length < 0.001f)
+                    {
+                        if (index == _currentPathIndex && _turnPath != null)
+                        {
+                            travelled += _turnPath.Length;
+                            segmentStart = _turnPath.PositionAtDistance(_turnPath.Length);
+                        }
+                        continue;
+                    }
+                    Vector2 direction = segment / length;
+                    Vector2 offset = otherGround - segmentStart;
+                    float along = Vector2.Dot(offset, direction);
+                    float lateral = Mathf.Abs(direction.x * offset.y - direction.y * offset.x);
+                    bool aligned = !other.HasActiveRoute || other.IsCurbManeuvering
+                        || Vector2.Dot(direction, other._forwardGroundDirection) > 0.5f;
+                    float startElevation = index == _currentPathIndex ? TrafficElevation : _activePath[index - 1].ElevationLevel;
+                    float pathElevation = Mathf.Lerp(startElevation, node.ElevationLevel, Mathf.Clamp01(along / length));
+                    bool sameElevation = Mathf.Abs(other.TrafficElevation - pathElevation) < 0.5f;
+                    // Include bodies just beyond the terminal node: their rear can still
+                    // obstruct the destination pose even though their centre is off-route.
+                    bool withinSegment = along <= length || index == _activePath.Count - 1;
+                    if (sameElevation && aligned && along > 0f && withinSegment && travelled + along <= horizon
+                        && lateral <= BodySensorHalfWidth(direction, other))
+                    {
+                        float gap = travelled + along - (LengthMeters + other.LengthMeters) * 0.5f;
+                        float leadSpeed = other._isPaused || !other.HasActiveRoute ? 0f : other._currentSpeed;
+                        speedLimit = Mathf.Min(speedLimit, CarFollowing.TargetSpeed(_maxSpeed, gap,
+                            leadSpeed, other.Deceleration, _deceleration, MinimumGap, TimeHeadway));
+                        clearTravel = Mathf.Min(clearTravel, Mathf.Max(0f, gap - MinimumGap));
+                        break;
+                    }
+                    travelled += length;
+                    segmentStart = end;
+                    if (index == _currentPathIndex && _turnPath != null)
+                    {
+                        travelled += _turnPath.Length;
+                        segmentStart = _turnPath.PositionAtDistance(_turnPath.Length);
+                    }
                 }
             }
-
-            return false;
         }
 
         private bool IsCrossTrafficApproaching(RoadNode intersectionNode)
@@ -490,6 +690,19 @@ namespace OutsiderDriver.Vehicles
             }
 
             Vector2 currentGround = projection.WorldToGround(transform.position);
+            SelectTurnPath(projection);
+            if (_turnUnavailable || (_turnPath != null && !_turnPath.IsValid))
+            {
+                _isYielding = true;
+                _currentSpeed = 0f; // invalid authored movement must never fall back to a sidewalk-cutting chord
+                return;
+            }
+            if (_turnPath != null && (_turnTraversing
+                || (currentGround - _turnPath.PositionAtDistance(0)).sqrMagnitude <= 0.000001f))
+            {
+                TickTurnPath(deltaTime);
+                return;
+            }
             Vector2 nodeGround = projection.WorldToGround(targetNode.Position);
             Vector2 laneTargetGround = GetLaneTargetGround(projection, targetNode, currentGround);
             Vector2 directionToTarget = laneTargetGround - currentGround;
@@ -498,28 +711,67 @@ namespace OutsiderDriver.Vehicles
 
             // Check if arrived at the authored waypoint. The car may pass beside the node in its lane,
             // so this is measured to the node while steering uses the lane-parallel target.
-            if (distanceToNode <= arrivalRadius)
+            bool terminalPoseClear = true;
+            if (_currentPathIndex == _activePath.Count - 1 && distanceToNode <= arrivalRadius)
+            {
+                GetFollowingLimit(directionToTarget.sqrMagnitude > 0.0001f ? directionToTarget.normalized : _forwardGroundDirection,
+                    null, out _, out float terminalClearTravel);
+                terminalPoseClear = (GetLaneEndGround(projection, targetNode) - currentGround).magnitude <= terminalClearTravel;
+            }
+            // Ownership checks precede *all* waypoint advancement, including a route
+            // beginning inside the arrival radius of somebody else's reserved junction.
+            if (_turnPath == null && distanceToNode <= arrivalRadius)
+            {
+                GetFollowingLimit(directionToTarget.sqrMagnitude > 0.0001f ? directionToTarget.normalized : _forwardGroundDirection,
+                    distanceToNode <= _intersectionYieldDistance ? targetNode : null,
+                    out float approachFollowingSpeed, out _);
+                EvaluateYield(targetNode, distanceToNode, approachFollowingSpeed);
+            }
+            bool ownsWaypoint = !IsConflictNode(targetNode) || targetNode.OccupyingVehicle == this;
+            bool atStopEntry = _stopRouting && _targetStop != null && targetNode == _targetStop.ApproachNode
+                && _currentPathIndex == _activePath.Count - 1;
+            bool atWaypoint = atStopEntry
+                ? (currentGround - _targetStop.PositionAtDistance(false, 0)).sqrMagnitude <= 0.000001f
+                : distanceToNode <= arrivalRadius;
+            if (_turnPath == null && atWaypoint && terminalPoseClear && ownsWaypoint)
             {
                 if (_reservedNode == targetNode)
                 {
-                    ReleaseReservedNode();
+                    _junctionCommitted = true;
                 }
 
+                _idleElevation = targetNode.ElevationLevel;
+                Vector2 terminalGround = GetLaneEndGround(projection, targetNode);
                 OnWaypointPassed?.Invoke(targetNode);
                 _currentPathIndex++;
 
                 if (_currentPathIndex >= _activePath.Count)
                 {
                     RoadNode reached = targetNode;
-                    Vector2 finalGround = GetLaneEndGround(projection, targetNode);
+                    if (atStopEntry)
+                    {
+                        BeginCurbArrival(_targetStop);
+                        return; // an access-node event never means passenger arrival
+                    }
+                    Vector2 finalGround = terminalGround;
                     Vector2 finalWorld = projection.GroundToWorld(finalGround);
                     transform.position = new Vector3(finalWorld.x, finalWorld.y, transform.position.z);
                     CancelRoute();
+                    ReleaseReservedNode();
                     OnDestinationReached?.Invoke(reached);
                     return;
                 }
 
                 targetNode = _activePath[_currentPathIndex];
+                SelectTurnPath(projection);
+                if (_turnUnavailable || (_turnPath != null && !_turnPath.IsValid))
+                {
+                    _currentSpeed = 0f; _isYielding = true; return;
+                }
+                if (_turnPath != null && (currentGround - _turnPath.PositionAtDistance(0)).sqrMagnitude <= 0.000001f)
+                {
+                    TickTurnPath(deltaTime); return;
+                }
                 _laneMergePathIndex = _currentPathIndex;
                 _laneMergeComplete = false;
                 nodeGround = projection.WorldToGround(targetNode.Position);
@@ -535,18 +787,9 @@ namespace OutsiderDriver.Vehicles
             }
 
             // Update facing direction
-            UpdateIsometricFacing(_forwardGroundDirection);
+            UpdateVisualHeading(deltaTime);
 
-            // Evaluate forward sensor and intersection right-of-way rules
-            _isYielding = ShouldYield(targetNode, _forwardGroundDirection, distanceToNode);
-            if (_isYielding)
-            {
-                ApplyDeceleration(deltaTime);
-            }
-            else
-            {
-                _currentSpeed = Mathf.MoveTowards(_currentSpeed, _maxSpeed, _acceleration * deltaTime);
-            }
+            UpdateLongitudinalSpeed(targetNode, distanceToNode, deltaTime);
 
             if (_currentSpeed > 0f)
             {
@@ -559,6 +802,221 @@ namespace OutsiderDriver.Vehicles
 
                 Vector2 groundMovement = _forwardGroundDirection * step;
                 transform.position += (Vector3)projection.GroundDeltaToWorld(groundMovement);
+                if (_reservedNode != null && !_junctionCommitted
+                    && (projection.WorldToGround(transform.position) - projection.WorldToGround(_reservedNode.Position)).magnitude
+                        <= _reservedNode.IntersectionClearanceRadius + LengthMeters * 0.5f)
+                {
+                    var approach = TrafficSignalApproach.Find(_reservedNode, IncomingNode);
+                    if (approach != null && ValidStopLine(approach, out Vector2 line, out Vector2 direction))
+                    {
+                        float distToLine = Vector2.Dot(line - projection.WorldToGround(transform.position), direction)
+                            - LengthMeters * 0.5f;
+                        if (distToLine <= 0.05f) _junctionCommitted = true;
+                    }
+                    else
+                    {
+                        _junctionCommitted = true;
+                    }
+                }
+            }
+        }
+
+        private bool IsConflictNode(RoadNode node) => node != null && (node.IsIntersection
+            || TrafficSignalController.Find(node) != null || TrafficSignalApproach.Find(node, IncomingNode) != null);
+
+        private RoadNode IncomingNode => _currentPathIndex > 0 ? _activePath[_currentPathIndex - 1] : _initialIncomingNode;
+
+        private bool SignalAllowsEntry(RoadNode target)
+        {
+            if (_reservedNode == target && _junctionCommitted) return true;
+            var controller = TrafficSignalController.Find(target);
+            var approach = TrafficSignalApproach.Find(target, IncomingNode);
+            if (controller == null && approach == null) return true;
+            return approach != null && approach.AllowsEntry && ValidStopLine(approach, out _, out _);
+        }
+
+        private bool ValidStopLine(TrafficSignalApproach approach, out Vector2 line, out Vector2 direction)
+        {
+            line = Vector2.zero; direction = Vector2.zero;
+            if (approach == null || approach.StopLine == null || approach.Incoming == null || approach.Junction == null) return false;
+            var projection = GroundProjection;
+            Vector2 start = projection.WorldToGround(approach.Incoming.Position);
+            Vector2 junction = projection.WorldToGround(approach.Junction.Position);
+            Vector2 segment = junction - start;
+            float length = segment.magnitude;
+            if (length < 0.001f) return false;
+            direction = segment / length;
+            line = projection.WorldToGround(approach.StopLine.position);
+            float longitudinal = Vector2.Dot(line - start, direction);
+            float lateral = Vector2.Dot(line - start, new Vector2(direction.y, -direction.x));
+            // A stop line is an authored lane position upstream of the protected junction.
+            return longitudinal >= 0f && longitudinal <= length - approach.Junction.IntersectionClearanceRadius
+                && Mathf.Abs(lateral - approach.Junction.LaneOffsetMeters) <= 0.25f;
+        }
+
+        private void ApplySignalLimit(RoadNode target, ref float speed, ref float clearTravel)
+        {
+            if (SignalAllowsEntry(target)) return;
+            var approach = TrafficSignalApproach.Find(target, IncomingNode);
+            float remaining = 0f;
+            if (ValidStopLine(approach, out Vector2 line, out Vector2 direction))
+            {
+                remaining = Mathf.Max(0f, Vector2.Dot(line - GroundProjection.WorldToGround(transform.position), direction)
+                    - LengthMeters * 0.5f - 0.1f);
+                // On a curve, front-to-line projected distance cannot authorize further curved travel on red.
+                if (_turnTraversing) remaining = 0f;
+            }
+            clearTravel = Mathf.Min(clearTravel, remaining);
+            speed = Mathf.Min(speed, CarFollowing.TargetSpeed(_maxSpeed, remaining + MinimumGap,
+                0f, _deceleration, _deceleration, MinimumGap, TimeHeadway));
+        }
+
+        private void UpdateLongitudinalSpeed(RoadNode targetNode, float distanceToNode, float deltaTime)
+        {
+            GetFollowingLimit(_forwardGroundDirection,
+                distanceToNode <= _intersectionYieldDistance ? targetNode : null,
+                out float followingSpeed, out float clearTravel);
+            _isYielding = EvaluateYield(targetNode, distanceToNode, followingSpeed);
+            float targetSpeed = followingSpeed;
+            ApplySignalLimit(targetNode, ref targetSpeed, ref clearTravel);
+            if (IsConflictNode(targetNode) && targetNode.OccupyingVehicle != this)
+            {
+                float entryTravel = Mathf.Max(0f, distanceToNode - targetNode.IntersectionClearanceRadius - LengthMeters * 0.5f - 0.1f);
+                if (_turnTraversing) entryTravel = 0f;
+                clearTravel = Mathf.Min(clearTravel, entryTravel);
+                targetSpeed = Mathf.Min(targetSpeed, Mathf.Sqrt(2f * _deceleration * entryTravel));
+            }
+            targetSpeed = Mathf.Min(targetSpeed, TurnSpeedLimit());
+            ApplyCurbApproachLimit(ref targetSpeed);
+            _currentSpeed = Mathf.MoveTowards(_currentSpeed, targetSpeed,
+                (targetSpeed < _currentSpeed ? _deceleration : _acceleration) * deltaTime);
+            _currentSpeed = Mathf.Min(_currentSpeed, clearTravel / deltaTime);
+        }
+
+        private void SelectTurnPath(IsometricGroundProjection projection)
+        {
+            if (_turnSelectionIndex == _currentPathIndex) return;
+            _turnSelectionIndex = _currentPathIndex;
+            _turnPath = null; _turnUnavailable = false; _turnTraversing = false; _turnDistance = 0f;
+            if (IncomingNode == null || _currentPathIndex + 1 >= _activePath.Count) return;
+            var incoming = IncomingNode;
+            var junction = _activePath[_currentPathIndex];
+            var outgoing = _activePath[_currentPathIndex + 1];
+            if (!RoadTurnPath.HasAuthoredMovement(incoming, junction, outgoing)) return;
+            _turnPath = RoadTurnPath.Find(incoming, junction, outgoing);
+            if (_turnPath == null || !_turnPath.Prepare(projection)) { _turnUnavailable = true; return; }
+            if (IsConflictNode(junction)
+                && (_turnPath.PositionAtDistance(_turnPath.Length) - projection.WorldToGround(junction.Position)).magnitude
+                    <= junction.IntersectionClearanceRadius + LengthMeters * 0.5f)
+            {
+                _turnUnavailable = true; // an authored exit must let the complete vehicle clear
+                return;
+            }
+            Vector2 tangent = _turnPath.TangentAtDistance(0);
+            // Do not reverse/teleport to a missed authored entry after re-routing.
+            if (Vector2.Dot(projection.WorldToGround(transform.position) - _turnPath.PositionAtDistance(0), tangent) > 0.25f)
+                _turnUnavailable = true;
+        }
+
+        private float TurnSpeedLimit()
+        {
+            if (_turnPath == null || !_turnPath.IsValid) return _maxSpeed;
+            float approachDistance = _turnTraversing ? 0f
+                : (GroundProjection.WorldToGround(transform.position) - _turnPath.PositionAtDistance(0)).magnitude;
+            float limit = _maxSpeed;
+            if (_turnTraversing)
+            {
+                limit = Mathf.Min(limit, _turnPath.SpeedLimitAtDistance(_turnDistance, LateralAcceleration, _maxSpeed));
+            }
+            for (int i = 0; i <= 32; i++)
+            {
+                float distance = _turnPath.Length * i / 32f;
+                if (_turnTraversing && distance < _turnDistance) continue;
+                float curveLimit = _turnPath.SpeedLimitAtDistance(distance, LateralAcceleration, _maxSpeed);
+                float ahead = approachDistance + distance - (_turnTraversing ? _turnDistance : 0f);
+                limit = Mathf.Min(limit, Mathf.Sqrt(curveLimit * curveLimit + 2f * _deceleration * Mathf.Max(0f, ahead)));
+            }
+            return limit;
+        }
+
+        private void TickTurnPath(float deltaTime)
+        {
+            var projection = GroundProjection;
+            var junction = CurrentTargetNode;
+            _forwardGroundDirection = _turnPath.TangentAtDistance(_turnDistance);
+            _forwardDirection = projection.GroundDeltaToWorld(_forwardGroundDirection).normalized;
+            float distanceToNode = (projection.WorldToGround(transform.position) - projection.WorldToGround(junction.Position)).magnitude;
+            UpdateLongitudinalSpeed(junction, distanceToNode, deltaTime);
+            if (!_turnTraversing && IsConflictNode(junction) && junction.OccupyingVehicle != this)
+            {
+                _currentSpeed = 0f;
+                return;
+            }
+            _turnTraversing = true;
+            _turnDistance = Mathf.Min(_turnPath.Length, _turnDistance + _currentSpeed * deltaTime);
+            Vector2 world = projection.GroundToWorld(_turnPath.PositionAtDistance(_turnDistance));
+            transform.position = new Vector3(world.x, world.y, transform.position.z);
+            _forwardGroundDirection = _turnPath.TangentAtDistance(_turnDistance);
+            _forwardDirection = projection.GroundDeltaToWorld(_forwardGroundDirection).normalized;
+            UpdateVisualHeading(deltaTime);
+            float movedDistanceToNode = (projection.WorldToGround(transform.position) - projection.WorldToGround(junction.Position)).magnitude;
+            if (_reservedNode == junction && movedDistanceToNode <= junction.IntersectionClearanceRadius + LengthMeters * 0.5f)
+                _junctionCommitted = true;
+            if (_turnDistance >= _turnPath.Length && (!IsConflictNode(junction) || junction.OccupyingVehicle == this))
+            {
+                if (_reservedNode == junction) { _junctionCommitted = true; }
+                _idleElevation = junction.ElevationLevel;
+                OnWaypointPassed?.Invoke(junction);
+                _currentPathIndex++;
+                _turnPath = null; _turnTraversing = false;
+                _turnSelectionIndex = -1;
+                _laneMergePathIndex = _currentPathIndex;
+                _laneMergeComplete = true;
+                if (_cancelAfterTurn)
+                {
+                    _cancelAfterTurn = false;
+                    CancelRoute();
+                    ReleaseReservedNode();
+                }
+                else if (_pendingPath != null)
+                {
+                    var pending = _pendingPath;
+                    _pendingPath = null;
+                    var stop = _pendingStopAfterTurn;
+                    _pendingStopAfterTurn = null;
+                    if (stop != null) InstallStopPath(pending, stop);
+                    else NavigateAlongPath(pending);
+                }
+            }
+        }
+
+        private bool QueueRouteAfterTurn(RoadNode destination, bool alternative, bool allowFallback)
+        {
+            if (_roadNetwork == null || _currentPathIndex + 1 >= _activePath.Count) return false;
+            RoadNode outgoing = _activePath[_currentPathIndex + 1];
+            var path = alternative ? _roadNetwork.FindAlternativePath(outgoing, destination)
+                : _roadNetwork.FindPath(outgoing, destination);
+            if (alternative && (path == null || path.Count == 0) && allowFallback)
+                path = _roadNetwork.FindPath(outgoing, destination);
+            if (path == null || path.Count == 0) return false;
+            AbandonStopGoal();
+            _pendingPath = new List<RoadNode>(path);
+            _isPaused = false;
+            _cancelAfterTurn = false;
+            return true;
+        }
+
+        private void UpdateVisualHeading(float deltaTime)
+        {
+            float from = Mathf.Atan2(_visualGroundDirection.y, _visualGroundDirection.x) * Mathf.Rad2Deg;
+            float to = Mathf.Atan2(_forwardGroundDirection.y, _forwardGroundDirection.x) * Mathf.Rad2Deg;
+            float angle = Mathf.MoveTowardsAngle(from, to, HeadingRate * deltaTime) * Mathf.Deg2Rad;
+            _visualGroundDirection = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+            UpdateIsometricFacing(_visualGroundDirection);
+            if (_rotateVisualsWithHeading && _visualsRoot != null && _visualsRoot != transform)
+            {
+                Vector3 worldHeading = GroundProjection.GroundDeltaToWorld(_visualGroundDirection);
+                _visualsRoot.rotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(worldHeading.y, worldHeading.x) * Mathf.Rad2Deg);
             }
         }
 
@@ -569,6 +1027,11 @@ namespace OutsiderDriver.Vehicles
         /// </summary>
         private Vector2 GetLaneTargetGround(IsometricGroundProjection projection, RoadNode targetNode, Vector2 currentGround)
         {
+            if (_stopRouting && _targetStop != null && targetNode == _targetStop.ApproachNode
+                && _currentPathIndex == _activePath.Count - 1)
+                return _targetStop.PositionAtDistance(false, 0);
+            if (_turnPath != null && !_turnTraversing && _turnPath.Junction == targetNode)
+                return _turnPath.PositionAtDistance(0);
             Vector2 targetGround = projection.WorldToGround(targetNode.Position);
             float laneOffset = targetNode.LaneOffsetMeters;
             if (laneOffset <= 0.0001f)
@@ -577,7 +1040,9 @@ namespace OutsiderDriver.Vehicles
             }
 
             int previousIndex = Mathf.Max(0, _currentPathIndex - 1);
-            Vector2 previousGround = projection.WorldToGround(_activePath[previousIndex].Position);
+            RoadNode previousNode = _currentPathIndex == 0 && _initialIncomingNode != null
+                ? _initialIncomingNode : _activePath[previousIndex];
+            Vector2 previousGround = projection.WorldToGround(previousNode.Position);
             Vector2 segmentDirection = targetGround - previousGround;
             if (segmentDirection.sqrMagnitude < 0.0001f)
             {
@@ -622,6 +1087,9 @@ namespace OutsiderDriver.Vehicles
 
         private Vector2 GetLaneEndGround(IsometricGroundProjection projection, RoadNode targetNode)
         {
+            if (_stopRouting && _targetStop != null && targetNode == _targetStop.ApproachNode
+                && _currentPathIndex == _activePath.Count - 1)
+                return _targetStop.PositionAtDistance(false, 0);
             Vector2 targetGround = projection.WorldToGround(targetNode.Position);
             float laneOffset = targetNode.LaneOffsetMeters;
             if (laneOffset <= 0.0001f)
@@ -630,7 +1098,9 @@ namespace OutsiderDriver.Vehicles
             }
 
             int previousIndex = Mathf.Max(0, _currentPathIndex - 1);
-            Vector2 previousGround = projection.WorldToGround(_activePath[previousIndex].Position);
+            RoadNode previousNode = _currentPathIndex == 0 && _initialIncomingNode != null
+                ? _initialIncomingNode : _activePath[previousIndex];
+            Vector2 previousGround = projection.WorldToGround(previousNode.Position);
             Vector2 segmentDirection = targetGround - previousGround;
             if (segmentDirection.sqrMagnitude < 0.0001f)
             {
@@ -649,6 +1119,7 @@ namespace OutsiderDriver.Vehicles
                 _reservedNode.ReleaseIntersection(this);
                 _reservedNode = null;
             }
+            _junctionCommitted = false;
         }
 
         private void ApplyDeceleration(float deltaTime)

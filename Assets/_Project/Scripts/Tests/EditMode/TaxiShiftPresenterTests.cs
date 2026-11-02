@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
-using UnityEditor.SceneManagement;
 using UnityEngine;
 using OutsiderDriver.Core.State;
 using OutsiderDriver.Core.Time;
@@ -17,25 +16,26 @@ namespace OutsiderDriver.Tests.EditMode
 {
     public class TaxiShiftPresenterTests
     {
-        private const string ScenePath = "Assets/_Project/Scenes/OutsiderCity.unity";
-        private const string DemandConfigPath = "Assets/_Project/Data/Rides/RideDemandConfig_Default.asset";
+        private TaxiStopTestFixture _fixture;
 
         [TearDown]
         public void TearDown()
         {
+            _fixture?.Dispose();
+            _fixture = null;
             VehicleController.ClearActiveVehicles();
         }
 
         [Test]
         public void Start_RendersGeneratedOffersCreditsAndNoActiveRide()
         {
-            var world = OpenProductionWorld();
+            var world = CreateWorld();
             var view = new FakeTaxiShiftView();
             using var presenter = CreatePresenter(world, view);
 
             presenter.Start();
 
-            Assert.GreaterOrEqual(view.Offers.Count, 2, "The production city must expose real generated fares.");
+            Assert.GreaterOrEqual(view.Offers.Count, 2, "The authored bay fixture must expose generated work from two residents.");
             Assert.IsFalse(view.ActiveVisible);
             Assert.IsFalse(view.NoWorkVisible);
             Assert.IsFalse(string.IsNullOrEmpty(view.Title));
@@ -58,7 +58,7 @@ namespace OutsiderDriver.Tests.EditMode
         [Test]
         public void WholeRide_AcceptBoardCollect_RequiresPlayerActionsAndContinuesWork()
         {
-            var world = OpenProductionWorld();
+            var world = CreateWorld();
             var view = new FakeTaxiShiftView();
             using var presenter = CreatePresenter(world, view);
             presenter.Start();
@@ -67,8 +67,8 @@ namespace OutsiderDriver.Tests.EditMode
             var chosen = view.Offers[0].Offer;
             var other = view.Offers[1].Offer;
 
-            // Wait for the passenger at the real curb so accepting starts the boarding phase.
-            world.Taxi.transform.position = chosen.PickupNode.Position;
+            Assert.IsTrue(world.Taxi.NavigateToStop(chosen.PickupStop));
+            SimulateUntilStopped(world.Taxi);
             int creditsBefore = world.Player.Credits;
 
             view.RaiseAccept(chosen);
@@ -108,9 +108,48 @@ namespace OutsiderDriver.Tests.EditMode
         }
 
         [Test]
+        public void TwoConsecutiveSystemicRides_UsePhysicalBaysAndExplicitActionsWithoutReload()
+        {
+            var world = CreateWorld();
+            var view = new FakeTaxiShiftView();
+            using var presenter = CreatePresenter(world, view);
+            presenter.Start();
+            var acceptedIds = new HashSet<string>();
+            int initialCredits = world.Player.Credits;
+            int expectedCredits = initialCredits;
+            for (int shift = 0; shift < 2; shift++)
+            {
+                Assert.GreaterOrEqual(view.Offers.Count, 1);
+                var chosen = view.Offers[0].Offer;
+                Assert.IsTrue(acceptedIds.Add(chosen.OfferId));
+                view.RaiseAccept(chosen);
+                Assert.IsNotNull(world.Ride.ActiveRequest);
+                SimulateUntilStopped(world.Taxi);
+                Assert.IsTrue(world.Taxi.IsAtStop(chosen.PickupStop));
+                Assert.AreEqual(RidePhase.AwaitingBoarding, world.Ride.CurrentPhase);
+                Assert.IsTrue(view.Active.Value.ShowBoardButton);
+                Assert.AreEqual(expectedCredits, world.Player.Credits);
+                view.RaiseBoard();
+                Assert.AreEqual(RidePhase.InTransit, world.Ride.CurrentPhase);
+                SimulateUntilStopped(world.Taxi);
+                Assert.IsTrue(world.Taxi.IsAtStop(chosen.DestinationStop));
+                Assert.AreEqual(RidePhase.ArrivedAtDestination, world.Ride.CurrentPhase);
+                Assert.IsTrue(view.Active.Value.ShowCollectButton);
+                Assert.AreEqual(expectedCredits, world.Player.Credits);
+                expectedCredits += chosen.QuotedFare + Mathf.RoundToInt(chosen.QuotedFare * chosen.Passenger.TipGenerosity);
+                view.RaiseCollect();
+                Assert.AreEqual(RidePhase.Idle, world.Ride.CurrentPhase);
+                Assert.AreEqual(expectedCredits, world.Player.Credits);
+                Assert.IsNull(world.Ride.ActiveRequest);
+            }
+            Assert.Greater(world.Player.Credits, initialCredits);
+            Assert.GreaterOrEqual(view.Offers.Count, 1);
+        }
+
+        [Test]
         public void DeclineOffer_ConsumesOnlyThatFareWithoutStartingARide()
         {
-            var world = OpenProductionWorld();
+            var world = CreateWorld();
             var view = new FakeTaxiShiftView();
             using var presenter = CreatePresenter(world, view);
             presenter.Start();
@@ -130,7 +169,7 @@ namespace OutsiderDriver.Tests.EditMode
         [Test]
         public void FailedRideActivation_ReleasesTheExactFareBackToTheBoard()
         {
-            var world = OpenProductionWorld();
+            var world = CreateWorld();
             var view = new FakeTaxiShiftView();
             var failingRide = new RideLifecycleService(world.Network, null, world.Player, world.Time);
             using var presenter = new TaxiShiftPresenter(
@@ -157,7 +196,7 @@ namespace OutsiderDriver.Tests.EditMode
         [Test]
         public void ExpiredDisplayedFare_IsRejected_ThenWorkReturnsAfterCooldown()
         {
-            var world = OpenProductionWorld();
+            var world = CreateWorld();
             var view = new FakeTaxiShiftView();
             using var presenter = CreatePresenter(world, view);
             presenter.Start();
@@ -183,7 +222,7 @@ namespace OutsiderDriver.Tests.EditMode
         [Test]
         public void BoardOrCollectOutsideTheirPhase_IsIgnored()
         {
-            var world = OpenProductionWorld();
+            var world = CreateWorld();
             var view = new FakeTaxiShiftView();
             using var presenter = CreatePresenter(world, view);
             presenter.Start();
@@ -204,13 +243,14 @@ namespace OutsiderDriver.Tests.EditMode
         [Test]
         public void ExternalCancellation_ReturnsToIdleAndRefreshesWork()
         {
-            var world = OpenProductionWorld();
+            var world = CreateWorld();
             var view = new FakeTaxiShiftView();
             using var presenter = CreatePresenter(world, view);
             presenter.Start();
 
             var chosen = view.Offers[0].Offer;
-            world.Taxi.transform.position = chosen.PickupNode.Position;
+            Assert.IsTrue(world.Taxi.NavigateToStop(chosen.PickupStop));
+            SimulateUntilStopped(world.Taxi);
             view.RaiseAccept(chosen);
             Assert.AreEqual(RidePhase.AwaitingBoarding, world.Ride.CurrentPhase);
             Assert.IsTrue(view.ActiveVisible);
@@ -226,7 +266,7 @@ namespace OutsiderDriver.Tests.EditMode
         [Test]
         public void LocaleChange_RelocalizesHudAndAppliesTextDirection()
         {
-            var world = OpenProductionWorld();
+            var world = CreateWorld();
             var view = new FakeTaxiShiftView();
             using var presenter = CreatePresenter(world, view);
             presenter.Start();
@@ -243,10 +283,7 @@ namespace OutsiderDriver.Tests.EditMode
 
         private static void SimulateUntilStopped(VehicleController taxi, int maxSteps = 5000)
         {
-            for (int i = 0; i < maxSteps && taxi.HasActiveRoute; i++)
-            {
-                taxi.TickMovement(0.05f);
-            }
+            TaxiStopTestFixture.DriveUntilStopped(taxi, maxSteps);
         }
 
         private static bool ContainsOffer(IReadOnlyList<RideOffer> offers, string offerId)
@@ -262,7 +299,7 @@ namespace OutsiderDriver.Tests.EditMode
             return false;
         }
 
-        private TaxiShiftPresenter CreatePresenter(ProductionWorld world, FakeTaxiShiftView view)
+        private TaxiShiftPresenter CreatePresenter(TestWorld world, FakeTaxiShiftView view)
         {
             return new TaxiShiftPresenter(
                 world.Demand,
@@ -274,31 +311,24 @@ namespace OutsiderDriver.Tests.EditMode
                 world.Time);
         }
 
-        private ProductionWorld OpenProductionWorld()
+        private TestWorld CreateWorld()
         {
-            var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
-            Assert.IsTrue(scene.IsValid());
-
-            var network = UnityEngine.Object.FindAnyObjectByType<RoadNetwork>();
-            var registry = UnityEngine.Object.FindAnyObjectByType<CityWorldRegistry>();
-            var taxi = UnityEngine.Object.FindAnyObjectByType<VehicleController>();
-            var config = UnityEditor.AssetDatabase.LoadAssetAtPath<RideDemandConfigSO>(DemandConfigPath);
-            Assert.IsNotNull(network);
-            Assert.IsNotNull(registry);
-            Assert.IsNotNull(taxi);
-            Assert.IsNotNull(config);
-
-            var time = new TimeService(null);
+            _fixture = new TaxiStopTestFixture();
+            var network = _fixture.Network;
+            var registry = _fixture.Registry;
+            var taxi = _fixture.Taxi();
+            var config = _fixture.Config;
+            var time = _fixture.Time;
             time.SetTime(new WorldTime(day: 1, hour: 12, minute: 0));
             var player = new PlayerStateService(time);
             var demand = new RideDemandService(network, registry, time, config, seedOverride: 7);
-            var ride = new RideLifecycleService(network, taxi, player, time);
+            var ride = new RideLifecycleService(network, taxi, player, time, registry);
             var localization = new LocalizationService();
 
-            return new ProductionWorld(network, registry, taxi, demand, ride, time, player, localization);
+            return new TestWorld(network, registry, taxi, demand, ride, time, player, localization);
         }
 
-        private sealed class ProductionWorld
+        private sealed class TestWorld
         {
             public readonly RoadNetwork Network;
             public readonly CityWorldRegistry Registry;
@@ -309,7 +339,7 @@ namespace OutsiderDriver.Tests.EditMode
             public readonly PlayerStateService Player;
             public readonly LocalizationService Localization;
 
-            public ProductionWorld(
+            public TestWorld(
                 RoadNetwork network,
                 CityWorldRegistry registry,
                 VehicleController taxi,

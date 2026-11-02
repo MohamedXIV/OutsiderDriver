@@ -301,6 +301,9 @@ namespace OutsiderDriver.Vehicles
             {
                 var candidate = allNodes[i];
                 if (candidate == null || candidate.ConnectedNodes.Count == 0) continue;
+                if (candidate.IsIntersection || candidate.PieceType != RoadPieceType.Straight) continue;
+                if (candidate.Priority == RoadNodePriority.YieldIntersection) continue;
+                if (TrafficSignalController.Find(candidate) != null) continue;
                 if (candidate.OccupyingVehicle != null) continue;
 
                 Vector2 candidateGround = projection.WorldToGround(candidate.Position);
@@ -350,7 +353,7 @@ namespace OutsiderDriver.Vehicles
                 for (int i = 0; i < allNodes.Count; i++)
                 {
                     var candidate = allNodes[(startIndex + i) % allNodes.Count];
-                    if (candidate == null || candidate == start) continue;
+                    if (candidate == null || candidate == start || candidate.IsIntersection || TrafficSignalController.Find(candidate) != null) continue;
 
                     if (!allowDeadEnds && (candidate.ConnectedNodes.Count <= 1 || candidate.PieceType == RoadPieceType.EndCap))
                     {
